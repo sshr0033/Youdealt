@@ -1,15 +1,11 @@
 <script setup>
-import HelloWorld from './components/HelloWorld.vue'
+import LoginPage from './components/LoginPage.vue'
 </script>
 
 <template>
-  <header>
-    <div class="wrapper">
-      <HelloWorld msg="YoutHealth!" />
-    </div>
-  </header>
-
-  <main></main>
+  <main>
+    <LoginPage />
+  </main>
 </template>
 
 <style scoped>
