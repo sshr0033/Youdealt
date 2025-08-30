@@ -1,7 +1,19 @@
-import './assets/main.css'
-
+// src/main.js
 import { createApp } from 'vue'
 import App from './App.vue'
-import 'bootstrap/dist/css/bootstrap.min.css'
 
-createApp(App).mount('#app')
+import PrimeVue from 'primevue/config'
+import Aura from '@primevue/themes/aura'
+import 'primeicons/primeicons.css'
+import './login.css'
+
+const app = createApp(App)
+app.use(PrimeVue, {
+  theme: {
+    preset: Aura,
+    options: { darkModeSelector: '.prime-dark' },
+  },
+})
+
+document.documentElement.classList.remove('prime-dark', 'dark')
+app.mount('#app')
