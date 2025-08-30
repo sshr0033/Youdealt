@@ -15,6 +15,17 @@
   color: var(--ink);
 }
 
+.login-aux {
+  margin-top: 0.75rem;
+  text-align: center;
+  font-size: 0.75rem;
+}
+.login-link {
+  margin-left: 0.35rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
 .login-card {
   width: min(480px, 92vw);
   background: #fff;

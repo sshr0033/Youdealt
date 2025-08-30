@@ -12,6 +12,12 @@ const fieldErrors = ref({ email: '', password: '' })
 
 const submissions = ref([])
 
+const STORAGE_KEY = 'loginSubmissions'
+
+function saveToStorage() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(submissions.value))
+}
+
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 function validateEmail(blur = false) {
   const validator = String(email.value || '').trim()
@@ -69,6 +75,7 @@ async function handleLogin() {
       password: String(password.value),
     }
     submissions.value.unshift(row)
+    saveToStorage()
   } finally {
     loading.value = false
   }
@@ -139,6 +146,11 @@ function removeRow(row) {
         <span v-if="!loading">Log in</span>
         <span v-else class="login-spinner" aria-live="polite">Signing in…</span>
       </button>
+
+      <div class="login-aux">
+        <span>New to us?</span>
+        <RouterLink to="/signup" class="login-link">Signup now</RouterLink>
+      </div>
     </form>
 
     <div v-if="error" class="login-alert login-alert--outside" role="alert" aria-live="polite">
