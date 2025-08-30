@@ -1,14 +1,32 @@
-<script setup>
-import LoginPage from './components/LoginPage.vue'
-</script>
+<!-- <script setup>
+import BHeader from './components/BHeader.vue'
+</script> -->
 
 <template>
-  <main>
-    <LoginPage />
-  </main>
+  <div class="app-shell">
+    <!-- <BHeader /> -->
+    <main class="page-wrap">
+      <RouterView />
+    </main>
+  </div>
 </template>
 
 <style scoped>
+.app-shell {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  align-content: center;
+  color: var(--ink);
+}
+
+.page-wrap {
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
 header {
   line-height: 1.5;
 }

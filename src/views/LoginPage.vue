@@ -73,6 +73,14 @@ async function handleLogin() {
     loading.value = false
   }
 }
+
+function indexOfRow(row) {
+  return submissions.value.indexOf(row)
+}
+function removeRow(row) {
+  const i = indexOfRow(row)
+  if (i > -1) submissions.value.splice(i, 1)
+}
 </script>
 
 <template>
@@ -152,6 +160,18 @@ async function handleLogin() {
         <Column header="Password">
           <template #body="{ data }">
             {{ data.password }}
+          </template>
+        </Column>
+        <Column header="Actions" style="width: 1%; white-space: nowrap">
+          <template #body="{ data }">
+            <Button
+              size="small"
+              severity="danger"
+              text
+              aria-label="Remove row"
+              @click="removeRow(data)"
+              >Remove</Button
+            >
           </template>
         </Column>
       </DataTable>
