@@ -246,6 +246,9 @@ async function handleSignup() {
       <Button type="submit" class="login-primary" :disabled="loading">
         <span v-if="loading">Signing up...</span><span v-else>Sign Up</span>
       </Button>
+        <p class="login-links">
+        <a href="/login">Back to Login</a>
+        </p>
     </form>
   </main>
 </template>
