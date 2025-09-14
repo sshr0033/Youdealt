@@ -1,22 +1,22 @@
 <script setup>
 import { ref } from 'vue'
-import DataTable from 'primevue/datatable'
-import Column from 'primevue/column'
+import Button from 'primevue/button'
+import { useRouter } from 'vue-router'
+import { auth } from '../main'
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth'
+import { getFirestore, doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore'
 
 const email = ref('')
 const password = ref('')
 const showPassword = ref(false)
 const loading = ref(false)
 const error = ref('')
+const success = ref('')
 const fieldErrors = ref({ email: '', password: '' })
 
-const submissions = ref([])
+const db = getFirestore()
+const router = useRouter()
 
-const STORAGE_KEY = 'loginSubmissions'
-
-function saveToStorage() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(submissions.value))
-}
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 function validateEmail(blur = false) {
@@ -25,68 +25,111 @@ function validateEmail(blur = false) {
   if (!validator) {
     if (blur) errorMsg = 'Please enter your email address.'
   } else if (!emailRegex.test(validator)) {
-    if (blur) errorMsg = 'Please enter a valid email address'
+    if (blur) errorMsg = 'Please enter a valid email address.'
   }
   fieldErrors.value.email = errorMsg
   return !errorMsg
 }
 
 function validatePassword(blur = false) {
-  const pwd = password.value || ''
-  const minLength = 8
-  const hasUppercase = /[A-Z]/.test(pwd)
-  const hasLowercase = /[a-z]/.test(pwd)
-  const hasNumber = /\d/.test(pwd)
-  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(pwd)
-
   let msg = ''
-  if (pwd.length < minLength) {
-    if (blur) msg = `Password must be at least ${minLength} characters long.`
-  } else if (!hasUppercase) {
-    if (blur) msg = 'Password must contain at least one uppercase letter.'
-  } else if (!hasLowercase) {
-    if (blur) msg = 'Password must contain at least one lowercase letter.'
-  } else if (!hasNumber) {
-    if (blur) msg = 'Password must contain at least one number.'
-  } else if (!hasSpecialChar) {
-    if (blur) msg = 'Password must contain at least one special character.'
+  if (!password.value) {
+    if (blur) msg = 'Password is required.'
   }
-
   fieldErrors.value.password = msg
   return !msg
 }
 
+
 async function handleLogin() {
   error.value = ''
-  const emailOk = validateEmail(true)
-  const passwordCheck = validatePassword(true)
+  success.value = ''
 
-  if (!emailOk) {
-    return
-  }
-  if (!password.value || !passwordCheck) {
-    return
-  }
+  const emailOk = validateEmail(true)
+  const passwordOk = validatePassword(true)
+  if (!emailOk || !passwordOk) return
 
   try {
     loading.value = true
-    const row = {
-      email: String(email.value).trim(),
-      password: String(password.value),
+    const userCredential = await signInWithEmailAndPassword(auth, email.value, password.value)
+    const user = userCredential.user
+
+
+    const adminRef = doc(db, 'admins', user.uid)
+    const adminSnap = await getDoc(adminRef)
+
+    if (adminSnap.exists()) {
+      const adminData = adminSnap.data()
+      success.value = `Welcome back, Admin ${adminData.name}!`
+      localStorage.setItem('userRole', 'admin')
+      setTimeout(() => router.push('/admin-homepage'), 1200)
+      return
     }
-    submissions.value.unshift(row)
-    saveToStorage()
+
+
+    const userRef = doc(db, 'users', user.uid)
+    const userSnap = await getDoc(userRef)
+
+    if (userSnap.exists()) {
+      const userData = userSnap.data()
+      success.value = `Welcome back, ${userData.name}!`
+      localStorage.setItem('userRole', userData.role)
+      setTimeout(() => router.push('/homepage'), 1200)
+      return
+    }
+
+
+    error.value = 'No profile found. Please sign up first.'
+  } catch (e) {
+    if (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password') {
+      error.value = 'Incorrect email or password.'
+    } else if (e.code === 'auth/user-not-found') {
+      error.value = 'No account found with this email.'
+    } else {
+      console.error(e)
+      error.value = 'Something went wrong. Please try again.'
+    }
   } finally {
     loading.value = false
   }
 }
 
-function indexOfRow(row) {
-  return submissions.value.indexOf(row)
-}
-function removeRow(row) {
-  const i = indexOfRow(row)
-  if (i > -1) submissions.value.splice(i, 1)
+
+async function handleForgotPassword() {
+  error.value = ''
+  success.value = ''
+
+  const emailOk = validateEmail(true)
+  if (!emailOk) return
+
+  try {
+
+    let found = false
+    for (const col of ['users', 'admins']) {
+      const colRef = collection(db, col)
+      const q = query(colRef, where('email', '==', email.value))
+      const querySnapshot = await getDocs(q)
+      if (!querySnapshot.empty) {
+        found = true
+        break
+      }
+    }
+
+    if (!found) {
+      error.value = 'This email is not registered. Please sign up.'
+      return
+    }
+
+    const actionCodeSettings = {
+      url: 'http://localhost:5173/reset-password',
+      handleCodeInApp: true
+    }
+
+    await sendPasswordResetEmail(auth, email.value, actionCodeSettings)
+    success.value = '📩 Password reset link sent! Please check your inbox.'
+  } catch (e) {
+    error.value = e.message
+  }
 }
 </script>
 
@@ -94,105 +137,45 @@ function removeRow(row) {
   <main class="login-wrap" aria-label="Login">
     <form class="login-card" @submit.prevent="handleLogin" novalidate>
       <h1 class="app-title">Youthealth</h1>
-      <h2 class="login-title">Welcome back</h2>
-      <p class="login-muted">Sign in to continue.</p>
+      <h2 class="login-title">Login</h2>
+      <p class="login-muted">Enter your credentials.</p>
+
+      <div v-if="error" class="login-alert login-alert--outside" role="alert">{{ error }}</div>
+      <div v-if="success" class="login-alert login-alert--outside success" role="status">{{ success }}</div>
 
       <label class="login-field">
         <span>Email</span>
-        <input
-          type="email"
-          inputmode="email"
-          autocomplete="email"
-          v-model="email"
-          required
-          @input="validateEmail(false)"
-          @blur="validateEmail(true)"
-          :aria-invalid="Boolean(fieldErrors.email)"
-        />
-        <p v-if="fieldErrors.email" class="login-alert error-tooltip">
-          {{ fieldErrors.email }}
-        </p>
+        <input type="email" v-model="email" required
+               :class="{'is-invalid': fieldErrors.email}"
+               @input="validateEmail(false)" @blur="validateEmail(true)" />
+        <p v-if="fieldErrors.email" class="login-alert error-tooltip">{{ fieldErrors.email }}</p>
       </label>
 
       <label class="login-field">
         <span>Password</span>
-        <div class="login-password">
-          <input
-            :type="showPassword ? 'text' : 'password'"
-            v-model="password"
-            padding-right="4rem"
-            required
-            @input="validatePassword(false)"
-            @blur="validatePassword(true)"
-            :aria-invalid="Boolean(fieldErrors.password)"
-          />
-
-          <Button
-            type="button"
-            class="login-ghost"
-            :aria-pressed="showPassword.toString()"
-            @click="showPassword = !showPassword"
-          >
-            <span v-if="showPassword">Hide</span>
-            <span v-else>Show</span>
-          </Button>
+        <div class="input-group">
+          <input :type="showPassword ? 'text' : 'password'" class="form-control"
+                 v-model="password" required
+                 :class="{'is-invalid': fieldErrors.password}"
+                 @input="validatePassword(false)" @blur="validatePassword(true)" />
+          <button type="button" class="btn btn-outline-secondary" @click="showPassword = !showPassword">
+            <i :class="showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
+          </button>
         </div>
-        <p v-if="fieldErrors.password" class="login-alert error-tooltip">
-          {{ fieldErrors.password }}
-        </p>
+        <p v-if="fieldErrors.password" class="login-alert error-tooltip">{{ fieldErrors.password }}</p>
       </label>
 
-      <button class="login-btn" type="submit" :disabled="loading">
-        <span v-if="!loading">Log in</span>
-        <span v-else class="login-spinner" aria-live="polite">Signing in…</span>
-      </button>
+      <Button type="submit" class="login-primary" :disabled="loading">
+        <span v-if="loading">Logging in...</span>
+        <span v-else>Login</span>
+      </Button>
 
-      <div class="login-aux">
-        <span>New to us?</span>
-        <RouterLink to="/signup" class="login-link">Signup now</RouterLink>
-      </div>
+      <p class="login-links">
+        <a href="#" @click.prevent="handleForgotPassword">Forgot password?</a> |
+        <a href="/firesignup">Sign up now</a>
+      </p>
     </form>
-
-    <div v-if="error" class="login-alert login-alert--outside" role="alert" aria-live="polite">
-      {{ error }}
-    </div>
-
-    <section class="login-card" style="margin-top: 1rem">
-      <h2 class="login-title" style="margin-bottom: 0.5rem">Database For Logins</h2>
-
-      <DataTable
-        :value="submissions"
-        :paginator="submissions.length > 5"
-        :rows="5"
-        stripedRows
-        size="small"
-        emptyMessage="No entries yet."
-      >
-        <Column field="email" header="Email" />
-        <Column header="Password">
-          <template #body="{ data }">
-            {{ data.password }}
-          </template>
-        </Column>
-        <Column header="Actions" style="width: 1%; white-space: nowrap">
-          <template #body="{ data }">
-            <Button
-              size="small"
-              severity="danger"
-              text
-              aria-label="Remove row"
-              @click="removeRow(data)"
-              >Remove</Button
-            >
-          </template>
-        </Column>
-      </DataTable>
-    </section>
   </main>
 </template>
 
-<style scoped>
-:deep(.p-datatable) {
-  width: 100%;
-}
-</style>
+
