@@ -74,7 +74,7 @@ async function handleResetPassword() {
     await verifyPasswordResetCode(auth, oobCode)
     await confirmPasswordReset(auth, oobCode, newPassword.value)
 
-    success.value = "✅ Password reset successful. Redirecting to login..."
+    success.value = "Password reset successful. Redirecting to login..."
     setTimeout(() => router.push("/login"), 1500)
   } catch (e) {
     switch (e.code) {

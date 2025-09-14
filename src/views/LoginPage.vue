@@ -126,7 +126,7 @@ async function handleForgotPassword() {
     }
 
     await sendPasswordResetEmail(auth, email.value, actionCodeSettings)
-    success.value = '📩 Password reset link sent! Please check your inbox.'
+    success.value = 'Password reset link sent! Please check your inbox.'
   } catch (e) {
     error.value = e.message
   }
