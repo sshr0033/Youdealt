@@ -1,4 +1,8 @@
+
 <script setup>
+
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+
 import { ref } from 'vue'
 import Button from 'primevue/button'
 import { useRouter } from 'vue-router'

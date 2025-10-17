@@ -14,6 +14,10 @@
 
           <router-link to="/homePage" class="nav-link" active-class="active">Homepage</router-link>
         </li>
+        <li class="nav-item">
+
+          <router-link to="/navbar" class="nav-link" active-class="active">Navbar</router-link>
+        </li>
       </ul>
     </header>
   </div>

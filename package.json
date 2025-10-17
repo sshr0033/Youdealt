@@ -11,15 +11,21 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint . --fix",
-    "format": "prettier --write src/"
+    "format": "prettier --write src/",
+    "start": "node server.js"
   },
   "dependencies": {
     "@iconify/vue": "^5.0.0",
     "@primevue/themes": "^4.3.7",
+    "axios": "^1.12.2",
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.1",
+    "cors": "^2.8.5",
     "dompurify": "^3.2.6",
-    "firebase": "^12.2.1",
+    "express": "^5.1.0",
+    "firebase": "^12.4.0",
+    "firebase-admin": "^13.5.0",
+    "firebase-functions": "^6.5.0",
     "primeicons": "^7.0.0",
     "primevue": "^4.3.7",
     "vue": "^3.5.18",

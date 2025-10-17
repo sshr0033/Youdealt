@@ -8,6 +8,7 @@ import HomePage from '@/views/HomePage.vue'
 
 import RatingUser from '@/views/RatingUser.vue'
 import AdminSignUp from '@/views/AdminSignUp.vue'
+import NavBar from '@/views/NavBar.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -20,6 +21,7 @@ const router = createRouter({
     { path: '/ratings', name: 'ratings', component: RatingUser },
     { path: '/admin-homepage', name: 'AdminHomePage', component: HomePage, meta: { requiresAuth: false } },
     { path: '/homePage', name: 'HomePage', component: HomePage, meta: { requiresAuth: true } },
+    { path: '/navbar', name: 'Navbar', component: NavBar, meta: { requiresAuth: true } },
     { path: '/:pathMatch(.*)*', redirect: '/login' }
   ]
 })

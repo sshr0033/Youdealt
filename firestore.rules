@@ -1,0 +1,26 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Public collection: for forgot-password checks only
+    match /public_emails/{docId} {
+      allow read: if true;  //  anyone can read to check existence
+      allow write, delete: if request.auth != null && request.auth.token.admin == true;
+    }
+
+    // Users collection: each authenticated user can read/write their own data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Admins collection: authenticated users can read their own admin profile
+    match /admins/{adminId} {
+      allow read, write: if request.auth != null && request.auth.uid == adminId;
+    }
+
+    // (optional) default deny all other paths
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
