@@ -1,30 +1,8 @@
 <template>
+  <NavBar/>
   <section class="hero">
     <div class="hero__frame">
-      <header class="hero__nav">
-        <div class="brand">
-          <span class="brand__you">You</span><span class="brand__dealt">Dealt</span>
-        </div>
 
-        <Button
-          v-if="user"
-          label="Logout"
-          outlined
-          rounded
-          size="small"
-          class="login login--right"
-          @click="handleLogout"
-        />
-        <Button
-          v-else
-          label="Login"
-          outlined
-          rounded
-          size="small"
-          class="login login--right"
-          @click="goToLogin"
-        />
-      </header>
 
       <div class="login login--center" v-if="!user">
         <Button label="Login" outlined rounded size="small" @click="goToLogin" />
@@ -74,36 +52,28 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
-import {  onAuthStateChanged, signOut } from 'firebase/auth'
+import {  onAuthStateChanged } from 'firebase/auth'
 
 import { auth } from '../firebaseConfig'
+import NavBar from './NavBar.vue'
 
 const router = useRouter()
 const user = ref(null)
 
 
-// --- Detect login state ---
+
 onMounted(() => {
   onAuthStateChanged(auth, (u) => {
     user.value = u
   })
 })
 
-// --- Navigate to login page ---
+
 const goToLogin = () => {
   router.push('/login')
 }
 
-// --- Logout ---
-const handleLogout = async () => {
-  try {
-    await signOut(auth)
-    user.value = null
-    router.push('/goals')
-  } catch (err) {
-    console.error('Logout failed:', err)
-  }
-}
+
 </script>
 
 <style scoped>

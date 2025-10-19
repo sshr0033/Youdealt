@@ -1,4 +1,5 @@
 <template>
+  <NavBar/>
   <section class="goals-section">
     <h2 class="title">My Wellness Goals</h2>
 
@@ -10,7 +11,7 @@
 
     <!-- Logged in -->
     <div v-else class="goals-container">
-      <h3 class="welcome">Welcome, {{ user.displayName || user.email }} 👋</h3>
+      <h3 class="welcome">Make your Goals and track it</h3>
 
       <!-- Add Goal -->
       <div class="goal-toolbar">
@@ -115,6 +116,7 @@ import InputNumber from "primevue/inputnumber";
 import DataTable from "primevue/datatable";
 import Column from "primevue/column";
 import Chart from "primevue/chart";
+import NavBar from "./NavBar.vue";
 
 const router = useRouter();
 const user = ref(null);
