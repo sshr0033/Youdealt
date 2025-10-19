@@ -4,22 +4,18 @@
   <section class="goals-section">
     <h2 class="title">My Wellness Goals</h2>
 
-    <!-- Not logged in -->
+
     <div v-if="!user" class="login-warning">
       <p>Please log in to view and track your goals.</p>
       <Button label="Go to Login" @click="goToLogin" />
     </div>
 
-    <!-- Logged in -->
+
     <div v-else class="goals-container">
       <h3 class="welcome">Make your Goals and track it</h3>
 
-      <!-- Offline Banner -->
-      <div v-if="isOffline" class="offline-banner">
-        ⚠️ You’re currently offline. Using cached goals.
-      </div>
 
-      <!-- Add Goal -->
+
       <div class="goal-toolbar">
         <Button
           label="Add New Goal"
@@ -59,7 +55,7 @@
 </Dialog>
 
 
-      <!-- Goals Table -->
+
       <DataTable
         :value="goals"
         paginator
@@ -85,7 +81,7 @@
         </Column>
       </DataTable>
 
-      <!-- Bar Chart -->
+
       <div class="summary-chart" v-if="goals.length > 0">
         <h3>Overall Progress by Goal</h3>
         <Chart
@@ -96,7 +92,7 @@
         />
       </div>
 
-      <!-- Actions -->
+
       <div class="email-section">
         <Button
           label="Send My Progress Report"
