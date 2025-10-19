@@ -4,7 +4,8 @@ import Rating from 'primevue/rating'
 import Button from 'primevue/button'
 import { useRouter } from 'vue-router'
 import { getFirestore, doc, setDoc, getDocs, collection } from 'firebase/firestore'
-import { auth } from '../main'
+import { auth } from '../firebaseConfig'
+
 
 const db = getFirestore()
 const router = useRouter()

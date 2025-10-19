@@ -1,14 +1,15 @@
 
 <script setup>
 
-import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+
 
 import { ref } from 'vue'
 import Button from 'primevue/button'
 import { useRouter } from 'vue-router'
-import { auth } from '../main'
+import { auth } from '../firebaseConfig'
+
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth'
-import { getFirestore, doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore'
+import { getFirestore, doc, getDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore'
 
 const email = ref('')
 const password = ref('')
@@ -59,29 +60,38 @@ async function handleLogin() {
     const user = userCredential.user
 
 
+    const userRef = doc(db, 'users', user.uid)
+    const snap = await getDoc(userRef)
+    if (!snap.exists()) {
+      await setDoc(userRef, {
+        email: user.email,
+        displayName: user.displayName || "",
+        role: 'user',
+        createdAt: new Date()
+      })
+    }
+
+
     const adminRef = doc(db, 'admins', user.uid)
     const adminSnap = await getDoc(adminRef)
 
     if (adminSnap.exists()) {
       const adminData = adminSnap.data()
-      success.value = `Welcome back, Admin ${adminData.name}!`
+      success.value = `Welcome back, Admin ${adminData.name || ''}!`
       localStorage.setItem('userRole', 'admin')
       setTimeout(() => router.push('/admin-homepage'), 1200)
       return
     }
 
 
-    const userRef = doc(db, 'users', user.uid)
     const userSnap = await getDoc(userRef)
-
     if (userSnap.exists()) {
       const userData = userSnap.data()
-      success.value = `Welcome back, ${userData.name}!`
-      localStorage.setItem('userRole', userData.role)
-      setTimeout(() => router.push('/homepage'), 1200)
+      success.value = `Welcome back, ${userData.displayName || userData.email}!`
+      localStorage.setItem('userRole', userData.role || 'user')
+      setTimeout(() => router.push('/homePage'), 1200)
       return
     }
-
 
     error.value = 'No profile found. Please sign up first.'
   } catch (e) {
@@ -97,6 +107,7 @@ async function handleLogin() {
     loading.value = false
   }
 }
+
 
 
 async function handleForgotPassword() {

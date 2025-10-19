@@ -4,12 +4,51 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <meta http-equiv="Content-Security-Policy"
-      content="default-src 'self'; 
-               connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://securetoken.googleapis.com;
-               script-src 'self' 'unsafe-eval' https://www.gstatic.com https://www.googletagmanager.com;
-               style-src 'self' 'unsafe-inline';
-               img-src 'self' data: https://*;">
+    <!-- index.html -->
+<meta
+  http-equiv="Content-Security-Policy"
+  content="
+    default-src 'self';
+    script-src 'self' 'unsafe-inline' 'unsafe-eval'
+      https://www.gstatic.com
+      https://www.googletagmanager.com
+      https://maps.googleapis.com
+      https://apis.google.com;
+    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+    img-src 'self' data: https://maps.gstatic.com https://maps.googleapis.com;
+    font-src 'self' https://fonts.gstatic.com;
+    connect-src 'self'
+      http://127.0.0.1:5000
+      http://localhost:5000
+      https://maps.googleapis.com
+      https://maps.gstatic.com
+      https://api.mapbox.com
+      https://events.mapbox.com
+      https://australia-southeast2-youthealth.cloudfunctions.net
+      https://sendemail-youthealth.cloudfunctions.net
+      https://firebase.googleapis.com
+      https://firestore.googleapis.com
+      https://firebaseinstallations.googleapis.com
+      https://securetoken.googleapis.com
+      https://identitytoolkit.googleapis.com
+      https://www.googleapis.com
+      https://www.gstatic.com
+      https://www.google-analytics.com
+      https://apis.google.com
+      https://*.firebaseapp.com
+      https://api.emailjs.com;
+  "
+/>
+
+
+
+
+
+
+
+
+
+
 
     <title>Vite App</title>
   </head>

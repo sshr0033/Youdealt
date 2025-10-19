@@ -18,6 +18,10 @@
 
           <router-link to="/navbar" class="nav-link" active-class="active">Navbar</router-link>
         </li>
+         <li class="nav-item">
+
+          <router-link to="/mapview" class="nav-link" active-class="active">MapView</router-link>
+        </li>
       </ul>
     </header>
   </div>

@@ -1,7 +1,8 @@
 <script setup>
 import { ref } from "vue"
 import { useRoute, useRouter } from "vue-router"
-import { auth } from "../main"
+import { auth } from '../firebaseConfig'
+
 import Button from 'primevue/button'
 import { verifyPasswordResetCode, confirmPasswordReset } from "firebase/auth"
 

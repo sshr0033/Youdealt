@@ -3,7 +3,8 @@ import { ref } from 'vue'
 import Button from 'primevue/button'
 import Dropdown from 'primevue/dropdown'
 import { useRouter } from 'vue-router'
-import { auth } from '../main'
+import { auth } from '../firebaseConfig'
+
 import { createUserWithEmailAndPassword } from 'firebase/auth'
 import { getFirestore, doc, setDoc } from 'firebase/firestore'
 
