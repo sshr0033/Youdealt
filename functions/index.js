@@ -1,8 +1,4 @@
-/**
- * Cloud Functions for Firebase (Node 22)
- * - Google Maps APIs (Places / Directions)
- * - EmailJS backend email sender (secure)
- */
+
 
 require("dotenv").config();
 const { onRequest } = require("firebase-functions/v2/https");
@@ -11,13 +7,13 @@ const admin = require("firebase-admin");
 const corsLib = require("cors");
 const { send } = require("@emailjs/nodejs");
 
-// --- Global setup ---
+
 setGlobalOptions({ region: "australia-southeast2", maxInstances: 10 });
 if (!admin.apps.length) admin.initializeApp();
 
 const cors = corsLib({ origin: true, methods: ["GET", "POST", "OPTIONS"] });
 
-// --- Helper ---
+
 function bad(res, code, msg) {
   return res.status(code).json({ error: msg });
 }
@@ -56,7 +52,6 @@ exports.placesText = onRequest(async (req, res) => {
   });
 });
 
-// --- /api/places/nearby ---
 exports.placesNearby = onRequest(async (req, res) => {
   return cors(req, res, async () => {
     try {
@@ -78,7 +73,7 @@ exports.placesNearby = onRequest(async (req, res) => {
   });
 });
 
-// --- /api/directions ---
+
 exports.directions = onRequest(async (req, res) => {
   return cors(req, res, async () => {
     try {
@@ -123,7 +118,7 @@ exports.sendEmail = onRequest(async (req, res) => {
       if (!SERVICE_ID || !TEMPLATE_ID || !PUBLIC_KEY || !PRIVATE_KEY)
         return bad(res, 500, "Missing EmailJS environment variables");
 
-      // Prepare payload for server endpoint
+
       const payload = {
         service_id: SERVICE_ID,
         template_id: TEMPLATE_ID,

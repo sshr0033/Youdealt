@@ -28,30 +28,40 @@
           <option v-for="skill in skills" :key="skill" :value="skill">
             {{ skill }}
           </option>
+          <Dialog v-model:visible="showPopup" modal :header="popupTitle" :style="{ width: '400px' }">
+  <div class="popup-card" :class="popupType">
+    <p>{{ popupMessage }}</p>
+  </div>
+  <template #footer>
+    <Button label="OK" icon="pi pi-check" class="p-button-primary" @click="showPopup = false" />
+  </template>
+</Dialog>
+
         </select>
         <button @click="searchPlaces">Search</button>
       </div>
 
       <div v-if="places.length" class="places-container">
         <h3>Top 5 Nearest Centres for {{ selectedSkill }}</h3>
-        <ul>
-          <li
-            v-for="p in places"
-            :key="p.place_id"
-            @click="getDirections(p)"
-            class="place-item"
-          >
-            <strong>{{ p.name }}</strong> — {{ p.formatted_address }}
-            <br />
-            <span v-if="p.distance && p.duration" class="eta">
-              {{ p.distance }} • ETA: {{ p.duration }}
-            </span>
-            <br />
-            <button class="join-btn" @click.stop="openJoinDialog(p)">
-              Joined this academy?
-            </button>
-          </li>
-        </ul>
+        <ul class="places-list">
+  <li
+    v-for="p in places"
+    :key="p.place_id"
+    class="place-item"
+  >
+    <div class="place-info" @click="getDirections(p)">
+      <strong>{{ p.name }}</strong> — {{ p.formatted_address }} <br />
+      <span v-if="p.distance && p.duration" class="eta">
+        {{ p.distance }} • ETA: {{ p.duration }}
+      </span>
+    </div>
+
+    <button class="join-btn" @click.stop="openJoinDialog(p)">
+      Joined this academy?
+    </button>
+  </li>
+</ul>
+
       </div>
 
 
@@ -127,6 +137,7 @@
             filter
             filterPlaceholder="Search academy"
           />
+
           <Column field="address" header="Address" sortable />
           <Column field="startDate" header="Start Date" sortable />
           <Column field="duration" header="Duration (weeks)" sortable />
@@ -162,6 +173,16 @@
               />
             </template>
           </Column>
+          <Column header="Mark your liking for this skill ">
+  <template #body="{ data }">
+    <Rating
+      v-model="ratings[data.id]"
+      :cancel="false"
+      @change="submitRating(data, ratings[data.id])"
+    />
+  </template>
+</Column>
+
         </DataTable>
       </div>
 
@@ -180,11 +201,13 @@
 </template>
 
 <script setup>
+import Rating from "primevue/rating"
+
 /* global google */
 import { ref, onMounted, nextTick } from "vue";
 import { auth, db } from "../firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
-import { collection, addDoc, getDocs, updateDoc, doc } from "firebase/firestore";
+import { collection, addDoc, getDocs, updateDoc, doc, setDoc } from "firebase/firestore";
 
 
 import Button from "primevue/button";
@@ -197,6 +220,13 @@ import Chart from "primevue/chart";
 import NavBar from "./NavBar.vue";
 
 const selectedSkill = ref("");
+const showPopup = ref(false)
+const popupTitle = ref('')
+const popupMessage = ref('')
+const popupType = ref('info')
+
+const ratings = ref({});
+const avgRatings = ref({});
 const skills = [
   "Mental Health Support",
   "Yoga",
@@ -230,6 +260,60 @@ const chartOptions = {
   plugins: { legend: { position: "bottom" } },
   scales: { y: { beginAtZero: true, title: { display: true, text: "Sessions" } } },
 };
+
+function showMessage(title, message, type = 'info') {
+  popupTitle.value = title
+  popupMessage.value = message
+  popupType.value = type
+  showPopup.value = true
+}
+
+
+async function loadRatings() {
+  try {
+    const snapshot = await getDocs(collection(db, "ratings"))
+    const grouped = {}
+    snapshot.docs.forEach((doc) => {
+      const data = doc.data()
+      if (!grouped[data.skill]) grouped[data.skill] = []
+      grouped[data.skill].push(data.value)
+    })
+    for (const skill in grouped) {
+      const values = grouped[skill]
+      avgRatings.value[skill] =
+        values.reduce((a, b) => a + b, 0) / values.length
+    }
+  } catch (e) {
+    console.error("Error loading ratings:", e)
+  }
+}
+
+async function submitRating(academy, value) {
+  if (!auth.currentUser) return showMessage("Please log in to rate.")
+  try {
+    const ratingRef = doc(
+      db,
+      "users",
+      auth.currentUser.uid,
+      "ratings",
+      academy.id
+    )
+    await setDoc(ratingRef, {
+      skill: academy.skill,
+      academyName: academy.name,
+      value,
+      createdAt: new Date().toISOString(),
+    })
+    ratings.value[academy.id] = value
+    showMessage(`Thanks for rating ${academy.name}!`)
+    await loadRatings()
+  } catch (e) {
+    console.error("Rating save failed:", e)
+  }
+}
+
+onMounted(() => loadRatings())
+
 
 
 onMounted(() => {
@@ -291,7 +375,7 @@ function initMapSafely() {
 
 
 async function searchPlaces() {
-  if (!selectedSkill.value) return alert("Please select a skill first.");
+  if (!selectedSkill.value) return showMessage("Please select a skill first.");
   const center = gmap.getCenter();
   const url = `https://australia-southeast2-youthealth.cloudfunctions.net/placesText?query=${encodeURIComponent(
     selectedSkill.value
@@ -301,7 +385,7 @@ async function searchPlaces() {
     const res = await fetch(url);
     const data = await res.json();
     if (data.status !== "OK")
-      return alert(`Error: ${data.error_message || data.status}`);
+      return showMessage(`Error: ${data.error_message || data.status}`);
 
     const userLoc = userMarker ? userMarker.getPosition() : center;
     const sorted = data.results
@@ -367,7 +451,7 @@ function fetchETAs() {
 }
 
 function getDirections(p) {
-  if (!userMarker) return alert("User location not found yet.");
+  if (!userMarker) return showMessage("User location not found yet.");
   const from = userMarker.getPosition();
   const request = {
     origin: from,
@@ -414,7 +498,7 @@ async function fetchJoinedAcademies() {
 async function markProgress(a) {
   const max = a.duration * a.frequency;
   if (a.completedSessions >= max)
-    return alert("You’ve completed this program!");
+    return showMessage("You've completed this program!");
   const newVal = a.completedSessions + 1;
   const ref = doc(db, "users", user.value.uid, "joined_academies", a.id);
   await updateDoc(ref, { completedSessions: newVal });
@@ -446,6 +530,42 @@ function progressClass(a) {
 </script>
 
 <style scoped>
+.places-list {
+  list-style-type: none;
+  padding: 0;
+  margin-top: 1rem;
+}
+
+.place-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff;
+  padding: 1rem 1.5rem;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  margin-bottom: 1rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.place-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+}
+
+.place-info {
+  flex: 1;
+  margin-right: 1rem;
+  cursor: pointer;
+}
+
+.eta {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+
+
 .map-section { padding: 1rem; background: #f5f2fa; min-height: 100vh; }
 .title { text-align: center; margin-bottom: 1rem; color: #4a148c; font-weight: 600; width: 100%; }
 .user-header { display: flex; justify-content: space-between; align-items: center; }
@@ -455,15 +575,74 @@ function progressClass(a) {
 select, button { padding: 0.6rem 1.2rem; border-radius: 6px; border: 1px solid #ccc; font-size: 1rem; }
 button { background: #673ab7; color: #fff; border: none; cursor: pointer; }
 button:hover { background: #512da8; }
-.join-btn { margin-top: 0.4rem; background: #4caf50; }
+.join-btn { margin-top: 0.4rem; background: #87c8ff; }
 .join-btn:hover { background: #43a047; }
 .places-container, .academy-table, .academy-chart {
-  width: 90vw; max-width: 1500px; margin: 2rem auto; background: #fff;
+  width: 98vw; max-width: 2500px; margin: 2rem auto; background: #fff;
   border-radius: 12px; padding: 2rem; box-shadow: 0 4px 10px rgba(0,0,0,0.08);
 }
 .badge { padding: 0.25rem 0.5rem; border-radius: 999px; color: #fff; font-size: 0.8rem; }
 .badge-idle { background: #9e9e9e; }
 .badge-wip { background: #ff9800; }
-.badge-good { background: #4caf50; }
+.badge-good { background: #87c8ff; }
 .badge-done { background: #3f51b5; }
+.p-fluid {
+  padding: 1rem 1.5rem;
+}
+.rating-summary {
+  margin-top: 1.5rem;
+  text-align: center;
+  background: #f9f9f9;
+  padding: 1rem;
+  border-radius: 8px;
+}
+.rating-summary ul {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0;
+}
+.rating-summary li {
+  margin: 0.3rem 0;
+  font-weight: 500;
+  color: #333;
+}
+
+
+.p-field {
+  margin-bottom: 1rem;
+}
+
+.p-field label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-weight: 500;
+}
+.popup-card {
+  text-align: center;
+  padding: 1rem;
+  font-size: 1.1rem;
+  line-height: 1.6;
+  border-radius: 8px;
+}
+
+.popup-card.success {
+  color: #2e7d32;
+  background: #e8f5e9;
+}
+
+.popup-card.error {
+  color: #c62828;
+  background: #ffebee;
+}
+
+.popup-card.warning {
+  color: #f57c00;
+  background: #fff3e0;
+}
+
+.popup-card.info {
+  color: #1565c0;
+  background: #e3f2fd;
+}
+
 </style>

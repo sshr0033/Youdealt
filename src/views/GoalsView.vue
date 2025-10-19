@@ -1,5 +1,6 @@
 <template>
-  <NavBar/>
+  <NavBar />
+
   <section class="goals-section">
     <h2 class="title">My Wellness Goals</h2>
 
@@ -12,6 +13,11 @@
     <!-- Logged in -->
     <div v-else class="goals-container">
       <h3 class="welcome">Make your Goals and track it</h3>
+
+      <!-- Offline Banner -->
+      <div v-if="isOffline" class="offline-banner">
+        ⚠️ You’re currently offline. Using cached goals.
+      </div>
 
       <!-- Add Goal -->
       <div class="goal-toolbar">
@@ -42,6 +48,16 @@
           <Button label="Add Goal" icon="pi pi-check" class="p-button-primary" @click="addGoal" />
         </template>
       </Dialog>
+      <Dialog v-model:visible="showSuccess" modal header="Email Sent" :style="{ width: '400px' }">
+  <div class="success-card">
+    <p>Your progress report has been successfully emailed!</p>
+    <p>Check your inbox for a copy of the report </p>
+  </div>
+  <template #footer>
+    <Button label="OK" icon="pi pi-check" class="p-button-primary" @click="showSuccess = false" />
+  </template>
+</Dialog>
+
 
       <!-- Goals Table -->
       <DataTable
@@ -50,7 +66,7 @@
         :rows="10"
         :filters="filters"
         filterDisplay="row"
-        :rowsPerPageOptions="[5,10,20]"
+        :rowsPerPageOptions="[5, 10, 20]"
         responsiveLayout="scroll"
       >
         <Column field="goal" header="Goal" sortable filter filterPlaceholder="Search goal" />
@@ -96,10 +112,20 @@
         />
       </div>
     </div>
+    <Dialog v-model:visible="showPopup" modal :header="popupTitle" :style="{ width: '400px' }">
+  <div class="popup-card" :class="popupType">
+    <p>{{ popupMessage }}</p>
+  </div>
+  <template #footer>
+    <Button label="OK" icon="pi pi-check" class="p-button-primary" @click="showPopup = false" />
+  </template>
+</Dialog>
+
   </section>
 </template>
 
 <script setup>
+
 import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import { auth, db } from "../firebaseConfig";
@@ -108,7 +134,6 @@ import { collection, addDoc, getDocs, updateDoc, doc } from "firebase/firestore"
 import jsPDF from "jspdf";
 import emailjs from "@emailjs/browser";
 
-// PrimeVue components
 import Button from "primevue/button";
 import Dialog from "primevue/dialog";
 import InputText from "primevue/inputtext";
@@ -119,17 +144,30 @@ import Chart from "primevue/chart";
 import NavBar from "./NavBar.vue";
 
 const router = useRouter();
+
+const showSuccess = ref(false)
+const showPopup = ref(false)
+const popupTitle = ref('')
+const popupMessage = ref('')
+const popupType = ref('info')
 const user = ref(null);
 const goals = ref([]);
 const showDialog = ref(false);
 const newGoal = ref("");
 const totalDays = ref(3);
+const isOffline = ref(!navigator.onLine);
 const filters = ref({
   goal: { value: null, matchMode: "contains" },
   streak: { value: null, matchMode: "startsWith" },
 });
 
-//  Watch auth state
+
+window.addEventListener("online", () => {
+  isOffline.value = false;
+  fetchGoals();
+});
+window.addEventListener("offline", () => (isOffline.value = true));
+
 onMounted(() => {
   onAuthStateChanged(auth, async (u) => {
     user.value = u;
@@ -139,22 +177,37 @@ onMounted(() => {
 
 const goToLogin = () => router.push("/login");
 
-//  Fetch user goals
+function showMessage(title, message, type = 'info') {
+  popupTitle.value = title
+  popupMessage.value = message
+  popupType.value = type
+  showPopup.value = true
+}
+
+
+
 async function fetchGoals() {
-  if (!user.value) return;
+  const cached = localStorage.getItem("cachedGoals");
+  if (cached && goals.value.length === 0) {
+    goals.value = JSON.parse(cached);
+  }
+
+  if (!navigator.onLine) return;
+
   try {
     const goalsRef = collection(db, "users", user.value.uid, "goals");
     const q = await getDocs(goalsRef);
     goals.value = q.docs.map((d) => ({ id: d.id, ...d.data() }));
+    localStorage.setItem("cachedGoals", JSON.stringify(goals.value));
   } catch (err) {
-    console.error("Error fetching goals:", err);
+    console.warn("Firestore fetch failed, using cached data", err);
   }
 }
 
-//  Add a new goal
+
 async function addGoal() {
-  if (!newGoal.value.trim()) return alert("Please enter a goal name");
-  if (!user.value) return alert("Login required to add a goal");
+  if (!newGoal.value.trim()) return showMessage("Please enter a goal name");
+  if (!user.value) return showMessage("Login required to add a goal");
 
   const goalData = {
     goal: newGoal.value,
@@ -168,47 +221,41 @@ async function addGoal() {
     const goalsRef = collection(db, "users", user.value.uid, "goals");
     const docRef = await addDoc(goalsRef, goalData);
     goals.value.push({ id: docRef.id, ...goalData });
+    localStorage.setItem("cachedGoals", JSON.stringify(goals.value));
+    showDialog.value = false;
     newGoal.value = "";
     totalDays.value = 3;
-    showDialog.value = false;
   } catch (err) {
     console.error("Failed to add goal:", err);
   }
 }
 
-//  Mark progress
+
 async function markProgress(g) {
-  if (!user.value) return alert("Login required");
+  if (!user.value) return showMessage("Login required");
   try {
     const updated = { ...g, completedDays: g.completedDays + 1, streak: g.streak + 1 };
     const goalRef = doc(db, "users", user.value.uid, "goals", g.id);
     await updateDoc(goalRef, updated);
     g.completedDays++;
     g.streak++;
+    localStorage.setItem("cachedGoals", JSON.stringify(goals.value));
   } catch (err) {
     console.error("Failed to update progress:", err);
   }
 }
 
-//  Bar Chart
-const barChartData = computed(() => {
-  if (goals.value.length === 0) return { datasets: [] };
 
+const barChartData = computed(() => {
+  if (!goals.value.length) return { datasets: [] };
   const labels = goals.value.map((g) => g.goal);
   const completion = goals.value.map((g) =>
     ((g.completedDays / g.totalDays) * 100).toFixed(1)
   );
-
   return {
     labels,
     datasets: [
-      {
-        label: "Completion (%)",
-        data: completion,
-        backgroundColor: "#42b883",
-        borderColor: "#2f855a",
-        borderWidth: 1,
-      },
+      { label: "Completion (%)", data: completion, backgroundColor: "#42b883" },
     ],
   };
 });
@@ -216,79 +263,46 @@ const barChartData = computed(() => {
 const barChartOptions = {
   responsive: true,
   scales: {
-    x: {
-      title: {
-        display: true,
-        text: "Goals",
-        color: "#333",
-        font: { size: 14, weight: "bold" },
-      },
-    },
-    y: {
-      beginAtZero: true,
-      title: {
-        display: true,
-        text: "Completion (%)",
-        color: "#333",
-        font: { size: 14, weight: "bold" },
-      },
-      ticks: {
-        stepSize: 10,
-        callback: (value) => value + "%",
-      },
-    },
-  },
-  plugins: {
-    legend: { display: false },
-    tooltip: {
-      callbacks: {
-        label: (ctx) => `${ctx.parsed.y}% completed`,
-      },
-    },
+    y: { beginAtZero: true, title: { display: true, text: "Completion (%)" } },
   },
 };
 
-//  Generate PDF (BR E.4)
 function makeReportPdf() {
   const doc = new jsPDF();
-
   doc.setFontSize(18);
   doc.text("YoutHealth - Weekly Progress Report", 14, 16);
-  doc.setLineWidth(0.5);
   doc.line(14, 18, 196, 18);
-
   doc.setFontSize(11);
   doc.text(`User: ${user.value.displayName || user.value.email}`, 14, 26);
   doc.text(`Date: ${new Date().toLocaleString()}`, 14, 33);
 
   doc.setFontSize(12);
   doc.text("Goals Summary:", 14, 42);
-
   let y = 50;
   goals.value.forEach((g, i) => {
     if (y > 280) { doc.addPage(); y = 20; }
     doc.text(`${i + 1}. ${g.goal} — ${g.completedDays}/${g.totalDays} days`, 14, y);
     y += 8;
   });
-
   return doc;
 }
+
 
 function downloadReport() {
   const pdf = makeReportPdf();
   pdf.save("Wellness_Progress_Report.pdf");
 }
 
-// Send Email (BR D.2)
+
 async function sendReport() {
   try {
-    if (!user.value) return alert("Login required");
+    if (!user.value) return showMessage("Login required");
 
     const pdf = makeReportPdf();
     pdf.save("Wellness_Progress_Report.pdf");
 
     const goalSummary = goals.value
-      .map((g) => `• ${g.goal}: ${g.completedDays}/${g.totalDays} days completed`)
+      .map((g) => `• ${g.goal}: ${g.completedDays}/${g.totalDays} days`)
       .join("\n");
 
     const templateParams = {
@@ -306,10 +320,11 @@ async function sendReport() {
     const PUBLIC_KEY = "aZy-1f4l1Bvb0yNvO";
 
     await emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY);
-    alert("✅ Email sent & PDF downloaded successfully!");
+    showSuccess.value = true;
+
   } catch (err) {
     console.error("Email send error:", err);
-    alert("❌ Failed to send email. Check console for details.");
+    showMessage(" Failed to send email. Check console for details.");
   }
 }
 </script>
@@ -358,4 +373,50 @@ async function sendReport() {
   color: #333;
   margin-top: 2rem;
 }
+.offline-banner {
+  background: #ff9800;
+  color: white;
+  padding: 0.7rem;
+  border-radius: 6px;
+  text-align: center;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+.popup-card {
+  text-align: center;
+  padding: 1rem;
+  font-size: 1.1rem;
+  line-height: 1.6;
+  border-radius: 8px;
+}
+
+.popup-card.success {
+  color: #2e7d32;
+  background: #e8f5e9;
+}
+
+.popup-card.error {
+  color: #c62828;
+  background: #ffebee;
+}
+
+.popup-card.warning {
+  color: #f57c00;
+  background: #fff3e0;
+}
+
+.popup-card.info {
+  color: #1565c0;
+  background: #e3f2fd;
+}
+.p-field {
+  margin-bottom: 1rem;
+}
+
+.p-field label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-weight: 500;
+}
+
 </style>
