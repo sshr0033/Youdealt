@@ -1,214 +1,119 @@
 <template>
   <NavBar />
 
-  <section class="map-section">
+  <section class="goals-section">
+    <h2 class="title">My Wellness Goals</h2>
 
-    <div v-if="!user" class="login-prompt">
-      <h2 class="title">Please Log In</h2>
-      <p>Log in to view wellbeing centres near you and track your progress.</p>
-      <Button
-        label="Go to Login"
-        icon="pi pi-sign-in"
-        @click="$router.push('/login')"
-      />
-    </div>
+    <div class="goals-container">
+      <h3 class="welcome">Make your Goals and track it</h3>
 
-
-    <div v-else>
-      <header class="user-header">
-        <h2 class="title">Find Mental Wellbeing Support Near You</h2>
-      </header>
-
-      <div id="map" class="map"></div>
-
-
-      <div class="controls">
-        <select v-model="selectedSkill">
-          <option disabled value="">Select a skill or service</option>
-          <option v-for="skill in skills" :key="skill" :value="skill">
-            {{ skill }}
-          </option>
-          <Dialog v-model:visible="showPopup" modal :header="popupTitle" :style="{ width: '400px' }">
-  <div class="popup-card" :class="popupType">
-    <p>{{ popupMessage }}</p>
-  </div>
-  <template #footer>
-    <Button label="OK" icon="pi pi-check" class="p-button-primary" @click="showPopup = false" />
-  </template>
-</Dialog>
-
-        </select>
-        <button @click="searchPlaces">Search</button>
+      <div class="goal-toolbar">
+        <Button
+          label="Add New Goal"
+          icon="pi pi-plus"
+          class="p-button-rounded p-button-success"
+          @click="showDialog = true"
+        />
       </div>
 
-      <div v-if="places.length" class="places-container">
-        <h3>Top 5 Nearest Centres for {{ selectedSkill }}</h3>
-        <ul class="places-list">
-  <li
-    v-for="p in places"
-    :key="p.place_id"
-    class="place-item"
-  >
-    <div class="place-info" @click="getDirections(p)">
-      <strong>{{ p.name }}</strong> — {{ p.formatted_address }} <br />
-      <span v-if="p.distance && p.duration" class="eta">
-        {{ p.distance }} • ETA: {{ p.duration }}
-      </span>
-    </div>
-
-    <button class="join-btn" @click.stop="openJoinDialog(p)">
-      Joined this academy?
-    </button>
-  </li>
-</ul>
-
-      </div>
-
-
-      <Dialog
-        v-model:visible="showJoinDialog"
-        modal
-        header="Join this Academy"
-        :style="{ width: '420px' }"
-      >
+      <!-- Add Goal Dialog -->
+      <Dialog v-model:visible="showDialog" modal header="Add a New Goal" :style="{ width: '400px' }">
         <div class="p-fluid">
-          <p><strong>Skill:</strong> {{ selectedSkill }}</p>
-          <p><strong>Academy:</strong> {{ selectedPlace?.name }}</p>
-          <p><strong>Address:</strong> {{ selectedPlace?.formatted_address }}</p>
-
           <div class="p-field">
-            <label>Start Date</label>
-            <InputText
-              type="date"
-              v-model="startDate"
-              style="width: 100%; padding: 0.5rem;"
-            />
+            <label for="goal">Goal Name</label>
+            <InputText id="goal" v-model="newGoal" placeholder="e.g. Meditate 3 days" />
           </div>
 
           <div class="p-field">
-            <label>Duration (weeks)</label>
-            <InputNumber v-model="duration" :min="1" :max="52" showButtons />
-          </div>
-
-          <div class="p-field">
-            <label>Frequency (sessions/week)</label>
-            <InputNumber v-model="frequency" :min="1" :max="7" showButtons />
+            <label for="days">Total Days</label>
+            <InputNumber id="days" v-model="totalDays" :min="1" :max="30" showButtons />
           </div>
         </div>
 
         <template #footer>
-          <Button
-            label="Cancel"
-            icon="pi pi-times"
-            class="p-button-text"
-            @click="showJoinDialog = false"
-          />
-          <Button
-            label="Save"
-            icon="pi pi-check"
-            class="p-button-primary"
-            @click="saveJoinedAcademy"
-          />
+          <Button label="Cancel" icon="pi pi-times" class="p-button-text" @click="showDialog = false" />
+          <Button label="Add Goal" icon="pi pi-check" class="p-button-primary" @click="addGoal" />
         </template>
       </Dialog>
 
+      <Dialog v-model:visible="showSuccess" modal header="Email Sent" :style="{ width: '400px' }">
+        <div class="success-card">
+          <p>Your progress report has been successfully emailed!</p>
+          <p>Check your inbox for a copy of the report</p>
+        </div>
+        <template #footer>
+          <Button label="OK" icon="pi pi-check" class="p-button-primary" @click="showSuccess = false" />
+        </template>
+      </Dialog>
 
-      <div v-if="joinedAcademies.length" class="academy-table">
-        <h3>Your Joined Academies</h3>
-        <DataTable
-          :value="joinedAcademies"
-          paginator
-          :rows="10"
-          :rowsPerPageOptions="[5, 10, 20]"
-          filterDisplay="row"
-          responsiveLayout="scroll"
-        >
-          <Column
-            field="skill"
-            header="Skill"
-            sortable
-            filter
-            filterPlaceholder="Search skill"
-          />
-          <Column
-            field="name"
-            header="Academy"
-            sortable
-            filter
-            filterPlaceholder="Search academy"
-          />
+      <DataTable
+        :value="goals"
+        paginator
+        :rows="10"
+        :filters="filters"
+        filterDisplay="row"
+        :rowsPerPageOptions="[5, 10, 20]"
+        responsiveLayout="scroll"
+      >
+        <Column field="goal" header="Goal" sortable filter filterPlaceholder="Search goal" />
+        <Column field="totalDays" header="Days" sortable />
+        <Column field="completedDays" header="Completed" sortable />
+        <Column field="streak" header="Streak" sortable />
+        <Column header="Mark Progress">
+          <template #body="{ data }">
+            <Button
+              icon="pi pi-check"
+              rounded
+              @click="markProgress(data)"
+              :disabled="data.completedDays >= data.totalDays"
+            />
+          </template>
+        </Column>
+      </DataTable>
 
-          <Column field="address" header="Address" sortable />
-          <Column field="startDate" header="Start Date" sortable />
-          <Column field="duration" header="Duration (weeks)" sortable />
-          <Column field="frequency" header="Frequency (/week)" sortable />
-          <Column field="completedSessions" header="Completed" sortable />
-          <Column header="Target">
-            <template #body="{ data }">
-              {{ data.frequency * data.duration }}
-            </template>
-          </Column>
-          <Column header="Progress">
-            <template #body="{ data }">
-              <span class="badge" :class="progressClass(data)">
-                {{
-                  Math.round(
-                    (data.completedSessions /
-                      (data.frequency * data.duration)) *
-                      100
-                  ) || 0
-                }}%
-              </span>
-            </template>
-          </Column>
-          <Column header="Mark Progress">
-            <template #body="{ data }">
-              <Button
-                icon="pi pi-check"
-                rounded
-                @click="markProgress(data)"
-                :disabled="
-                  data.completedSessions >= data.frequency * data.duration
-                "
-              />
-            </template>
-          </Column>
-          <Column header="Mark your liking for this skill ">
-  <template #body="{ data }">
-    <Rating
-      v-model="ratings[data.id]"
-      :cancel="false"
-      @change="submitRating(data, ratings[data.id])"
-    />
-  </template>
-</Column>
-
-        </DataTable>
-      </div>
-
-
-      <div v-if="joinedAcademies.length" class="academy-chart">
-        <h3>Lesson Progress by Academy</h3>
+      <div class="summary-chart" v-if="goals.length > 0">
+        <h3>Overall Progress by Goal</h3>
         <Chart
           type="bar"
-          :data="chartData"
-          :options="chartOptions"
-          style="height: 350px; width: 100%; max-width: 900px"
+          :data="barChartData"
+          :options="barChartOptions"
+          style="width: 100%; max-width: 700px; height: 400px;"
+        />
+      </div>
+
+      <div class="email-section">
+        <Button
+          label="Send My Progress Report"
+          icon="pi pi-envelope"
+          class="p-button-success"
+          @click="sendReport"
+        />
+        <Button
+          label="Download PDF Report"
+          icon="pi pi-download"
+          class="p-button-secondary ml-2"
+          @click="downloadReport"
         />
       </div>
     </div>
+
+    <Dialog v-model:visible="showPopup" modal :header="popupTitle" :style="{ width: '400px' }">
+      <div class="popup-card" :class="popupType">
+        <p>{{ popupMessage }}</p>
+      </div>
+      <template #footer>
+        <Button label="OK" icon="pi pi-check" class="p-button-primary" @click="showPopup = false" />
+      </template>
+    </Dialog>
   </section>
 </template>
 
 <script setup>
-import Rating from "primevue/rating"
-
-/* global google */
-import { ref, onMounted, nextTick } from "vue";
-import { auth, db } from "../firebaseConfig";
-import { onAuthStateChanged } from "firebase/auth";
-import { collection, addDoc, getDocs, updateDoc, doc, setDoc } from "firebase/firestore";
-
+import { ref, computed, onMounted } from "vue";
+import { db } from "../firebaseConfig";
+import { collection, addDoc, getDocs, updateDoc, doc } from "firebase/firestore";
+import jsPDF from "jspdf";
+import emailjs from "@emailjs/browser";
 
 import Button from "primevue/button";
 import Dialog from "primevue/dialog";
@@ -219,403 +124,233 @@ import Column from "primevue/column";
 import Chart from "primevue/chart";
 import NavBar from "./NavBar.vue";
 
-const selectedSkill = ref("");
-const showPopup = ref(false)
-const popupTitle = ref('')
-const popupMessage = ref('')
-const popupType = ref('info')
-
-const ratings = ref({});
-const avgRatings = ref({});
-const skills = [
-  "Mental Health Support",
-  "Yoga",
-  "Meditation",
-  "Therapy",
-  "Counselling",
-  "Stress Management",
-  "Psychologist",
-  "Rehabilitation",
-];
-
-const places = ref([]);
-const joinedAcademies = ref([]);
-const chartData = ref({});
-const selectedPlace = ref(null);
-const showJoinDialog = ref(false);
-const startDate = ref(new Date().toISOString().split("T")[0]);
-const duration = ref(4);
-const frequency = ref(2);
-const user = ref(null);
-
-let gmap = null;
-let userMarker = null;
-let directionsService = null;
-let directionsRenderer = null;
-
-
-const chartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: { legend: { position: "bottom" } },
-  scales: { y: { beginAtZero: true, title: { display: true, text: "Sessions" } } },
+// ✅ Demo user - no authentication needed
+const demoUserId = "demo-user-123";
+const demoUser = {
+  uid: demoUserId,
+  displayName: "Demo User",
+  email: "demo@youthealth.app"
 };
 
-function showMessage(title, message, type = 'info') {
-  popupTitle.value = title
-  popupMessage.value = message
-  popupType.value = type
-  showPopup.value = true
-}
-
-
-async function loadRatings() {
-  try {
-    const snapshot = await getDocs(collection(db, "ratings"))
-    const grouped = {}
-    snapshot.docs.forEach((doc) => {
-      const data = doc.data()
-      if (!grouped[data.skill]) grouped[data.skill] = []
-      grouped[data.skill].push(data.value)
-    })
-    for (const skill in grouped) {
-      const values = grouped[skill]
-      avgRatings.value[skill] =
-        values.reduce((a, b) => a + b, 0) / values.length
-    }
-  } catch (e) {
-    console.error("Error loading ratings:", e)
-  }
-}
-
-async function submitRating(academy, value) {
-  if (!auth.currentUser) return showMessage("Please log in to rate.")
-  try {
-    const ratingRef = doc(
-      db,
-      "users",
-      auth.currentUser.uid,
-      "ratings",
-      academy.id
-    )
-    await setDoc(ratingRef, {
-      skill: academy.skill,
-      academyName: academy.name,
-      value,
-      createdAt: new Date().toISOString(),
-    })
-    ratings.value[academy.id] = value
-    showMessage(`Thanks for rating ${academy.name}!`)
-    await loadRatings()
-  } catch (e) {
-    console.error("Rating save failed:", e)
-  }
-}
-
-onMounted(() => loadRatings())
-
-
-
-onMounted(() => {
-  onAuthStateChanged(auth, async (u) => {
-    user.value = u || null;
-
-    if (u) {
-      await fetchJoinedAcademies();
-      await nextTick();
-      loadGoogleMap();
-    }
-  });
+const showSuccess = ref(false);
+const showPopup = ref(false);
+const popupTitle = ref("");
+const popupMessage = ref("");
+const popupType = ref("info");
+const goals = ref([]);
+const showDialog = ref(false);
+const newGoal = ref("");
+const totalDays = ref(3);
+const filters = ref({
+  goal: { value: null, matchMode: "contains" },
+  streak: { value: null, matchMode: "startsWith" },
 });
 
-function loadGoogleMap() {
-  if (!window.google || !window.google.maps) {
-    const s = document.createElement("script");
-    s.src =
-      "https://maps.googleapis.com/maps/api/js?key=AIzaSyAIawbRzpIXz3FLC5osYjT2P8nIySjzlk4&libraries=places";
-    s.async = true;
-    s.defer = true;
-    s.onload = initMapSafely;
-    document.head.appendChild(s);
-  } else {
-    initMapSafely();
-  }
+// ✅ Load goals on mount
+onMounted(() => {
+  fetchGoals();
+});
+
+function showMessage(title, message, type = "info") {
+  popupTitle.value = title;
+  popupMessage.value = message;
+  popupType.value = type;
+  showPopup.value = true;
 }
 
-function initMapSafely() {
-  const mapDiv = document.getElementById("map");
-  if (!mapDiv) {
-    console.warn("⏳ Map div not ready — retrying...");
-    setTimeout(initMapSafely, 300);
-    return;
+// ✅ Fetch goals from Firestore using demo user ID
+async function fetchGoals() {
+  const cached = localStorage.getItem("cachedGoals");
+  if (cached && goals.value.length === 0) {
+    goals.value = JSON.parse(cached);
   }
-
-  gmap = new google.maps.Map(mapDiv, {
-    center: { lat: -37.8136, lng: 144.9631 },
-    zoom: 12,
-  });
-
-  directionsService = new google.maps.DirectionsService();
-  directionsRenderer = new google.maps.DirectionsRenderer({ map: gmap });
-
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition((pos) => {
-      const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      userMarker = new google.maps.Marker({
-        map: gmap,
-        position: loc,
-        label: "You",
-      });
-      gmap.setCenter(loc);
-    });
-  }
-
-  console.log("Google Map initialized checking");
-}
-
-
-async function searchPlaces() {
-  if (!selectedSkill.value) return showMessage("Please select a skill first.");
-  const center = gmap.getCenter();
-  const url = `https://australia-southeast2-youthealth.cloudfunctions.net/placesText?query=${encodeURIComponent(
-    selectedSkill.value
-  )}&lat=${center.lat()}&lng=${center.lng()}`;
 
   try {
-    const res = await fetch(url);
-    const data = await res.json();
-    if (data.status !== "OK")
-      return showMessage(`Error: ${data.error_message || data.status}`);
-
-    const userLoc = userMarker ? userMarker.getPosition() : center;
-    const sorted = data.results
-      .map((p) => ({
-        ...p,
-        distanceVal: getDistance(
-          userLoc.lat(),
-          userLoc.lng(),
-          p.geometry.location.lat,
-          p.geometry.location.lng
-        ),
-      }))
-      .sort((a, b) => a.distanceVal - b.distanceVal)
-      .slice(0, 5);
-
-    places.value = sorted;
-    directionsRenderer.setDirections({ routes: [] });
-    places.value.forEach((p) =>
-      new google.maps.Marker({
-        map: gmap,
-        position: p.geometry.location,
-        title: p.name,
-      })
-    );
-    setTimeout(fetchETAs, 800);
+    const goalsRef = collection(db, "users", demoUserId, "goals");
+    const q = await getDocs(goalsRef);
+    goals.value = q.docs.map((d) => ({ id: d.id, ...d.data() }));
+    localStorage.setItem("cachedGoals", JSON.stringify(goals.value));
   } catch (err) {
-    console.error("Error fetching places:", err);
+    console.warn("Firestore fetch failed, using cached data", err);
   }
 }
 
-function getDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
+// ✅ Add goal using demo user ID
+async function addGoal() {
+  if (!newGoal.value.trim()) return showMessage("Error", "Please enter a goal name", "error");
 
-function fetchETAs() {
-  if (!userMarker || !places.value.length) return;
-  const from = userMarker.getPosition();
-  const destinations = places.value.map((p) => p.geometry.location);
-  const service = new google.maps.DistanceMatrixService();
-  service.getDistanceMatrix(
-    { origins: [from], destinations, travelMode: google.maps.TravelMode.DRIVING },
-    (response, status) => {
-      if (status === "OK") {
-        const results = response.rows[0].elements;
-        results.forEach((res, i) => {
-          if (res.status === "OK") {
-            places.value[i].distance = res.distance.text;
-            places.value[i].duration = res.duration.text;
-          }
-        });
-        places.value = [...places.value];
-      }
-    }
-  );
-}
-
-function getDirections(p) {
-  if (!userMarker) return showMessage("User location not found yet.");
-  const from = userMarker.getPosition();
-  const request = {
-    origin: from,
-    destination: p.geometry.location,
-    travelMode: google.maps.TravelMode.DRIVING,
-  };
-  directionsService.route(request, (result, status) => {
-    if (status === google.maps.DirectionsStatus.OK)
-      directionsRenderer.setDirections(result);
-  });
-}
-
-function openJoinDialog(place) {
-  selectedPlace.value = place;
-  showJoinDialog.value = true;
-}
-
-async function saveJoinedAcademy() {
-  const entry = {
-    skill: selectedSkill.value,
-    name: selectedPlace.value.name,
-    address: selectedPlace.value.formatted_address,
-    startDate: startDate.value,
-    duration: Number(duration.value),
-    frequency: Number(frequency.value),
-    completedSessions: 0,
+  const goalData = {
+    goal: newGoal.value,
+    completedDays: 0,
+    totalDays: totalDays.value,
+    streak: 0,
     createdAt: new Date(),
   };
-  const refCol = collection(db, "users", user.value.uid, "joined_academies");
-  const docRef = await addDoc(refCol, entry);
-  entry.id = docRef.id;
-  joinedAcademies.value.push(entry);
-  showJoinDialog.value = false;
-  updateChart();
+
+  try {
+    const goalsRef = collection(db, "users", demoUserId, "goals");
+    const docRef = await addDoc(goalsRef, goalData);
+    goals.value.push({ id: docRef.id, ...goalData });
+    localStorage.setItem("cachedGoals", JSON.stringify(goals.value));
+    showDialog.value = false;
+    newGoal.value = "";
+    totalDays.value = 3;
+    showMessage("Success", "Goal added successfully!", "success");
+  } catch (err) {
+    console.error("Failed to add goal:", err);
+    showMessage("Error", "Failed to add goal. Try again.", "error");
+  }
 }
 
-async function fetchJoinedAcademies() {
-  const refCol = collection(db, "users", user.value.uid, "joined_academies");
-  const snapshot = await getDocs(refCol);
-  joinedAcademies.value = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-  updateChart();
+// ✅ Mark progress using demo user ID
+async function markProgress(g) {
+  try {
+    const updated = {
+      ...g,
+      completedDays: g.completedDays + 1,
+      streak: g.streak + 1,
+    };
+    const goalRef = doc(db, "users", demoUserId, "goals", g.id);
+    await updateDoc(goalRef, updated);
+    g.completedDays++;
+    g.streak++;
+    localStorage.setItem("cachedGoals", JSON.stringify(goals.value));
+    showMessage("Success", "Progress marked!", "success");
+  } catch (err) {
+    console.error("Failed to update progress:", err);
+    showMessage("Error", "Failed to mark progress. Try again.", "error");
+  }
 }
 
-async function markProgress(a) {
-  const max = a.duration * a.frequency;
-  if (a.completedSessions >= max)
-    return showMessage("You've completed this program!");
-  const newVal = a.completedSessions + 1;
-  const ref = doc(db, "users", user.value.uid, "joined_academies", a.id);
-  await updateDoc(ref, { completedSessions: newVal });
-  a.completedSessions = newVal;
-  updateChart();
-}
-
-function updateChart() {
-  const labels = joinedAcademies.value.map((a) => a.name);
-  const completed = joinedAcademies.value.map((a) => a.completedSessions);
-  const targets = joinedAcademies.value.map((a) => a.duration * a.frequency);
-  chartData.value = {
+// Bar chart data
+const barChartData = computed(() => {
+  if (!goals.value.length) return { datasets: [] };
+  const labels = goals.value.map((g) => g.goal);
+  const completion = goals.value.map((g) =>
+    ((g.completedDays / g.totalDays) * 100).toFixed(1)
+  );
+  return {
     labels,
     datasets: [
-      { label: "Completed Sessions", data: completed, backgroundColor: "#4CAF50" },
-      { label: "Target Sessions", data: targets, backgroundColor: "#D1C4E9" },
+      { label: "Completion (%)", data: completion, backgroundColor: "#42b883" },
     ],
   };
+});
+
+const barChartOptions = {
+  responsive: true,
+  scales: {
+    y: { beginAtZero: true, title: { display: true, text: "Completion (%)" } },
+  },
+};
+
+// ✅ Generate PDF using demo user email
+function makeReportPdf() {
+  const doc = new jsPDF();
+  doc.setFontSize(18);
+  doc.text("YoutHealth - Weekly Progress Report", 14, 16);
+  doc.line(14, 18, 196, 18);
+  doc.setFontSize(11);
+  doc.text(`User: ${demoUser.displayName}`, 14, 26);
+  doc.text(`Email: ${demoUser.email}`, 14, 33);
+  doc.text(`Date: ${new Date().toLocaleString()}`, 14, 40);
+
+  doc.setFontSize(12);
+  doc.text("Goals Summary:", 14, 50);
+  let y = 58;
+  goals.value.forEach((g, i) => {
+    if (y > 280) {
+      doc.addPage();
+      y = 20;
+    }
+    doc.text(`${i + 1}. ${g.goal} — ${g.completedDays}/${g.totalDays} days`, 14, y);
+    y += 8;
+  });
+  return doc;
 }
 
-function progressClass(a) {
-  const t = a.duration * a.frequency;
-  const pct = (a.completedSessions / t) * 100 || 0;
-  if (pct >= 100) return "badge-done";
-  if (pct >= 60) return "badge-good";
-  if (pct > 0) return "badge-wip";
-  return "badge-idle";
+// Download PDF
+function downloadReport() {
+  const pdf = makeReportPdf();
+  pdf.save("Wellness_Progress_Report.pdf");
+  showMessage("Success", "Report downloaded!", "success");
+}
+
+// ✅ Send report email using demo user
+async function sendReport() {
+  try {
+    const pdf = makeReportPdf();
+    pdf.save("Wellness_Progress_Report.pdf");
+
+    const goalSummary = goals.value
+      .map((g) => `• ${g.goal}: ${g.completedDays}/${g.totalDays} days`)
+      .join("\n");
+
+    const templateParams = {
+      to_email: demoUser.email,
+      name: demoUser.displayName,
+      title: "Weekly Progress Summary",
+      message:
+        `Hello ${demoUser.displayName} 👋,\n\n` +
+        `Here's your wellness progress summary:\n\n${goalSummary}\n\n` +
+        `A PDF copy has been downloaded to your device.\n\nKeep up the great work! 🌿✨\n— The YoutHealth Team`,
+    };
+
+    const SERVICE_ID = "service_dtrf273";
+    const TEMPLATE_ID = "template_3bvdupa";
+    const PUBLIC_KEY = "aZy-1f4l1Bvb0yNvO";
+
+    await emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY);
+    showSuccess.value = true;
+  } catch (err) {
+    console.error("Email send error:", err);
+    showMessage("Error", "Failed to send email. Check console for details.", "error");
+  }
 }
 </script>
 
 <style scoped>
-.places-list {
-  list-style-type: none;
-  padding: 0;
-  margin-top: 1rem;
+.goals-section {
+  min-height: 100vh;
+  width: 98vw;
+  padding: 2rem;
+  background: #f7f8fc;
 }
-
-.place-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #fff;
-  padding: 1rem 1.5rem;
-  border-radius: 10px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-  margin-bottom: 1rem;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.place-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
-}
-
-.place-info {
-  flex: 1;
-  margin-right: 1rem;
-  cursor: pointer;
-}
-
-.eta {
-  color: #666;
-  font-size: 0.9rem;
-}
-
-
-
-.map-section { padding: 1rem; background: #f5f2fa; min-height: 100vh; }
-.title { text-align: center; margin-bottom: 1rem; color: #4a148c; font-weight: 600; width: 100%; }
-.user-header { display: flex; justify-content: space-between; align-items: center; }
-.login-prompt { text-align: center; margin-top: 4rem; }
-.map { width: 95vw; height: 400px; border-radius: 10px; margin-bottom: 1rem; }
-.controls { display: flex; justify-content: center; gap: 10px; margin-bottom: 1rem; }
-select, button { padding: 0.6rem 1.2rem; border-radius: 6px; border: 1px solid #ccc; font-size: 1rem; }
-button { background: #673ab7; color: #fff; border: none; cursor: pointer; }
-button:hover { background: #512da8; }
-.join-btn { margin-top: 0.4rem; background: #87c8ff; }
-.join-btn:hover { background: #43a047; }
-.places-container, .academy-table, .academy-chart {
-  width: 98vw; max-width: 2500px; margin: 2rem auto; background: #fff;
-  border-radius: 12px; padding: 2rem; box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-}
-.badge { padding: 0.25rem 0.5rem; border-radius: 999px; color: #fff; font-size: 0.8rem; }
-.badge-idle { background: #9e9e9e; }
-.badge-wip { background: #ff9800; }
-.badge-good { background: #87c8ff; }
-.badge-done { background: #3f51b5; }
-.p-fluid {
-  padding: 1rem 1.5rem;
-}
-.rating-summary {
-  margin-top: 1.5rem;
+.title {
   text-align: center;
-  background: #f9f9f9;
-  padding: 1rem;
-  border-radius: 8px;
+  color: #4a148c;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
 }
-.rating-summary ul {
-  list-style: none;
-  padding: 0;
-  margin: 0.5rem 0;
-}
-.rating-summary li {
-  margin: 0.3rem 0;
-  font-weight: 500;
+.welcome {
+  text-align: center;
   color: #333;
-}
-
-
-.p-field {
   margin-bottom: 1rem;
 }
-
-.p-field label {
-  display: block;
-  margin-bottom: 0.4rem;
-  font-weight: 500;
+.goals-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.goal-toolbar {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+.summary-chart {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 2rem;
+  padding: 1rem;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.email-section {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
 }
 .popup-card {
   text-align: center;
@@ -645,4 +380,21 @@ button:hover { background: #512da8; }
   background: #e3f2fd;
 }
 
+.p-field {
+  margin-bottom: 1rem;
+}
+
+.p-field label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-weight: 500;
+}
+
+.success-card {
+  text-align: center;
+  padding: 1rem;
+  color: #2e7d32;
+  background: #e8f5e9;
+  border-radius: 8px;
+}
 </style>
