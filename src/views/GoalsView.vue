@@ -4,17 +4,8 @@
   <section class="goals-section">
     <h2 class="title">My Wellness Goals</h2>
 
-
-    <div v-if="!user" class="login-warning">
-      <p>Please log in to view and track your goals.</p>
-      <Button label="Go to Login" @click="goToLogin" />
-    </div>
-
-
-    <div v-else class="goals-container">
+    <div class="goals-container">
       <h3 class="welcome">Make your Goals and track it</h3>
-
-
 
       <div class="goal-toolbar">
         <Button
@@ -44,17 +35,16 @@
           <Button label="Add Goal" icon="pi pi-check" class="p-button-primary" @click="addGoal" />
         </template>
       </Dialog>
+
       <Dialog v-model:visible="showSuccess" modal header="Email Sent" :style="{ width: '400px' }">
-  <div class="success-card">
-    <p>Your progress report has been successfully emailed!</p>
-    <p>Check your inbox for a copy of the report </p>
-  </div>
-  <template #footer>
-    <Button label="OK" icon="pi pi-check" class="p-button-primary" @click="showSuccess = false" />
-  </template>
-</Dialog>
-
-
+        <div class="success-card">
+          <p>Your progress report has been successfully emailed!</p>
+          <p>Check your inbox for a copy of the report</p>
+        </div>
+        <template #footer>
+          <Button label="OK" icon="pi pi-check" class="p-button-primary" @click="showSuccess = false" />
+        </template>
+      </Dialog>
 
       <DataTable
         :value="goals"
@@ -81,7 +71,6 @@
         </Column>
       </DataTable>
 
-
       <div class="summary-chart" v-if="goals.length > 0">
         <h3>Overall Progress by Goal</h3>
         <Chart
@@ -91,7 +80,6 @@
           style="width: 100%; max-width: 700px; height: 400px;"
         />
       </div>
-
 
       <div class="email-section">
         <Button
@@ -108,24 +96,21 @@
         />
       </div>
     </div>
-    <Dialog v-model:visible="showPopup" modal :header="popupTitle" :style="{ width: '400px' }">
-  <div class="popup-card" :class="popupType">
-    <p>{{ popupMessage }}</p>
-  </div>
-  <template #footer>
-    <Button label="OK" icon="pi pi-check" class="p-button-primary" @click="showPopup = false" />
-  </template>
-</Dialog>
 
+    <Dialog v-model:visible="showPopup" modal :header="popupTitle" :style="{ width: '400px' }">
+      <div class="popup-card" :class="popupType">
+        <p>{{ popupMessage }}</p>
+      </div>
+      <template #footer>
+        <Button label="OK" icon="pi pi-check" class="p-button-primary" @click="showPopup = false" />
+      </template>
+    </Dialog>
   </section>
 </template>
 
 <script setup>
-
-import { ref, onMounted, computed } from "vue";
-import { useRouter } from "vue-router";
-import { auth, db } from "../firebaseConfig";
-import { onAuthStateChanged } from "firebase/auth";
+import { ref, computed, onMounted } from "vue";
+import { db } from "../firebaseConfig";
 import { collection, addDoc, getDocs, updateDoc, doc } from "firebase/firestore";
 import jsPDF from "jspdf";
 import emailjs from "@emailjs/browser";
@@ -139,59 +124,49 @@ import Column from "primevue/column";
 import Chart from "primevue/chart";
 import NavBar from "./NavBar.vue";
 
-const router = useRouter();
+// ✅ Demo user - no authentication needed
+const demoUserId = "demo-user-123";
+const demoUser = {
+  uid: demoUserId,
+  displayName: "Demo User",
+  email: "demo@youthealth.app"
+};
 
-const showSuccess = ref(false)
-const showPopup = ref(false)
-const popupTitle = ref('')
-const popupMessage = ref('')
-const popupType = ref('info')
-const user = ref(null);
+const showSuccess = ref(false);
+const showPopup = ref(false);
+const popupTitle = ref("");
+const popupMessage = ref("");
+const popupType = ref("info");
 const goals = ref([]);
 const showDialog = ref(false);
 const newGoal = ref("");
 const totalDays = ref(3);
-const isOffline = ref(!navigator.onLine);
 const filters = ref({
   goal: { value: null, matchMode: "contains" },
   streak: { value: null, matchMode: "startsWith" },
 });
 
-
-window.addEventListener("online", () => {
-  isOffline.value = false;
+// ✅ Load goals on mount
+onMounted(() => {
   fetchGoals();
 });
-window.addEventListener("offline", () => (isOffline.value = true));
 
-onMounted(() => {
-  onAuthStateChanged(auth, async (u) => {
-    user.value = u;
-    if (u) await fetchGoals();
-  });
-});
-
-const goToLogin = () => router.push("/login");
-
-function showMessage(title, message, type = 'info') {
-  popupTitle.value = title
-  popupMessage.value = message
-  popupType.value = type
-  showPopup.value = true
+function showMessage(title, message, type = "info") {
+  popupTitle.value = title;
+  popupMessage.value = message;
+  popupType.value = type;
+  showPopup.value = true;
 }
 
-
-
+// ✅ Fetch goals from Firestore using demo user ID
 async function fetchGoals() {
   const cached = localStorage.getItem("cachedGoals");
   if (cached && goals.value.length === 0) {
     goals.value = JSON.parse(cached);
   }
 
-  if (!navigator.onLine) return;
-
   try {
-    const goalsRef = collection(db, "users", user.value.uid, "goals");
+    const goalsRef = collection(db, "users", demoUserId, "goals");
     const q = await getDocs(goalsRef);
     goals.value = q.docs.map((d) => ({ id: d.id, ...d.data() }));
     localStorage.setItem("cachedGoals", JSON.stringify(goals.value));
@@ -200,10 +175,9 @@ async function fetchGoals() {
   }
 }
 
-
+// ✅ Add goal using demo user ID
 async function addGoal() {
-  if (!newGoal.value.trim()) return showMessage("Please enter a goal name");
-  if (!user.value) return showMessage("Login required to add a goal");
+  if (!newGoal.value.trim()) return showMessage("Error", "Please enter a goal name", "error");
 
   const goalData = {
     goal: newGoal.value,
@@ -214,34 +188,41 @@ async function addGoal() {
   };
 
   try {
-    const goalsRef = collection(db, "users", user.value.uid, "goals");
+    const goalsRef = collection(db, "users", demoUserId, "goals");
     const docRef = await addDoc(goalsRef, goalData);
     goals.value.push({ id: docRef.id, ...goalData });
     localStorage.setItem("cachedGoals", JSON.stringify(goals.value));
     showDialog.value = false;
     newGoal.value = "";
     totalDays.value = 3;
+    showMessage("Success", "Goal added successfully!", "success");
   } catch (err) {
     console.error("Failed to add goal:", err);
+    showMessage("Error", "Failed to add goal. Try again.", "error");
   }
 }
 
-
+// ✅ Mark progress using demo user ID
 async function markProgress(g) {
-  if (!user.value) return showMessage("Login required");
   try {
-    const updated = { ...g, completedDays: g.completedDays + 1, streak: g.streak + 1 };
-    const goalRef = doc(db, "users", user.value.uid, "goals", g.id);
+    const updated = {
+      ...g,
+      completedDays: g.completedDays + 1,
+      streak: g.streak + 1,
+    };
+    const goalRef = doc(db, "users", demoUserId, "goals", g.id);
     await updateDoc(goalRef, updated);
     g.completedDays++;
     g.streak++;
     localStorage.setItem("cachedGoals", JSON.stringify(goals.value));
+    showMessage("Success", "Progress marked!", "success");
   } catch (err) {
     console.error("Failed to update progress:", err);
+    showMessage("Error", "Failed to mark progress. Try again.", "error");
   }
 }
 
-
+// Bar chart data
 const barChartData = computed(() => {
   if (!goals.value.length) return { datasets: [] };
   const labels = goals.value.map((g) => g.goal);
@@ -263,37 +244,41 @@ const barChartOptions = {
   },
 };
 
+// ✅ Generate PDF using demo user email
 function makeReportPdf() {
   const doc = new jsPDF();
   doc.setFontSize(18);
   doc.text("YoutHealth - Weekly Progress Report", 14, 16);
   doc.line(14, 18, 196, 18);
   doc.setFontSize(11);
-  doc.text(`User: ${user.value.displayName || user.value.email}`, 14, 26);
-  doc.text(`Date: ${new Date().toLocaleString()}`, 14, 33);
+  doc.text(`User: ${demoUser.displayName}`, 14, 26);
+  doc.text(`Email: ${demoUser.email}`, 14, 33);
+  doc.text(`Date: ${new Date().toLocaleString()}`, 14, 40);
 
   doc.setFontSize(12);
-  doc.text("Goals Summary:", 14, 42);
-  let y = 50;
+  doc.text("Goals Summary:", 14, 50);
+  let y = 58;
   goals.value.forEach((g, i) => {
-    if (y > 280) { doc.addPage(); y = 20; }
+    if (y > 280) {
+      doc.addPage();
+      y = 20;
+    }
     doc.text(`${i + 1}. ${g.goal} — ${g.completedDays}/${g.totalDays} days`, 14, y);
     y += 8;
   });
   return doc;
 }
 
-
+// Download PDF
 function downloadReport() {
   const pdf = makeReportPdf();
   pdf.save("Wellness_Progress_Report.pdf");
+  showMessage("Success", "Report downloaded!", "success");
 }
 
-
+// ✅ Send report email using demo user
 async function sendReport() {
   try {
-    if (!user.value) return showMessage("Login required");
-
     const pdf = makeReportPdf();
     pdf.save("Wellness_Progress_Report.pdf");
 
@@ -302,12 +287,12 @@ async function sendReport() {
       .join("\n");
 
     const templateParams = {
-      to_email: user.value.email,
-      name: user.value.displayName || user.value.email,
+      to_email: demoUser.email,
+      name: demoUser.displayName,
       title: "Weekly Progress Summary",
       message:
-        `Hello ${user.value.displayName || "there"} 👋,\n\n` +
-        `Here’s your wellness progress summary:\n\n${goalSummary}\n\n` +
+        `Hello ${demoUser.displayName} 👋,\n\n` +
+        `Here's your wellness progress summary:\n\n${goalSummary}\n\n` +
         `A PDF copy has been downloaded to your device.\n\nKeep up the great work! 🌿✨\n— The YoutHealth Team`,
     };
 
@@ -317,10 +302,9 @@ async function sendReport() {
 
     await emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY);
     showSuccess.value = true;
-
   } catch (err) {
     console.error("Email send error:", err);
-    showMessage(" Failed to send email. Check console for details.");
+    showMessage("Error", "Failed to send email. Check console for details.", "error");
   }
 }
 </script>
@@ -343,6 +327,10 @@ async function sendReport() {
   color: #333;
   margin-bottom: 1rem;
 }
+.goals-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
 .goal-toolbar {
   display: flex;
   justify-content: center;
@@ -363,20 +351,6 @@ async function sendReport() {
   justify-content: center;
   gap: 1rem;
   margin-top: 1.5rem;
-}
-.login-warning {
-  text-align: center;
-  color: #333;
-  margin-top: 2rem;
-}
-.offline-banner {
-  background: #ff9800;
-  color: white;
-  padding: 0.7rem;
-  border-radius: 6px;
-  text-align: center;
-  margin-bottom: 1rem;
-  font-weight: 600;
 }
 .popup-card {
   text-align: center;
@@ -405,6 +379,7 @@ async function sendReport() {
   color: #1565c0;
   background: #e3f2fd;
 }
+
 .p-field {
   margin-bottom: 1rem;
 }
@@ -415,4 +390,11 @@ async function sendReport() {
   font-weight: 500;
 }
 
+.success-card {
+  text-align: center;
+  padding: 1rem;
+  color: #2e7d32;
+  background: #e8f5e9;
+  border-radius: 8px;
+}
 </style>
