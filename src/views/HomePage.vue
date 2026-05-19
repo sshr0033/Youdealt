@@ -2,78 +2,44 @@
   <NavBar/>
   <section class="hero">
     <div class="hero__frame">
-
-
-      <div class="login login--center" v-if="!user">
-        <Button label="Login" outlined rounded size="small" @click="goToLogin" />
-      </div>
-
       <div class="hero__bg">
         <div class="hero__overlay"></div>
       </div>
-
       <div class="hero__content">
         <h1 class="hero__title">
           Your Journey to achieve<br />
           Mental Wellness
         </h1>
-
         <p class="hero__subtitle">
           Include us in your journey to explore therapies, mindfulness and wellness support,
           designed to help you thrive; we help you track your achievements and motivate you
           to grow towards a healthier mind and body.
         </p>
-
         <Button
-          v-if="!user"
           v-ripple
           class="hero__cta"
           size="large"
           rounded
-          label="Login / Sign Up now →"
-          @click="goToLogin"
+          label="Goals →"
+          @click="router.push('/goals')"
         />
-        <Button
-  v-else
-  v-ripple
-  class="hero__cta"
-  size="large"
-  rounded
-  label="Goals →"
-  @click="router.push('/goals')"
-/>
-
       </div>
     </div>
   </section>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
-import {  onAuthStateChanged } from 'firebase/auth'
-
-import { auth } from '../firebaseConfig'
 import NavBar from './NavBar.vue'
 
 const router = useRouter()
-const user = ref(null)
 
-
-
-onMounted(() => {
-  onAuthStateChanged(auth, (u) => {
-    user.value = u
-  })
-})
-
-
-const goToLogin = () => {
-  router.push('/login')
+// Demo user - no authentication needed
+const demoUser = {
+  name: "Demo User",
+  email: "demo@youthealth.app"
 }
-
-
 </script>
 
 <style scoped>
@@ -93,7 +59,6 @@ const goToLogin = () => {
   min-height: calc(100dvh - 24px);
   background: #0e1525;
 }
-
 .hero__nav {
   position: absolute;
   inset: 0 0 auto 0;
@@ -113,15 +78,6 @@ const goToLogin = () => {
 }
 .brand__you { color: #e6f0ff; }
 .brand__dealt { margin-left: 2px; color: #87c8ff; }
-
-.login {
-  position: absolute;
-  z-index: 5;
-  pointer-events: auto;
-}
-.login--right { top: 12px; right: 18px; }
-.login--center { top: 10px; left: 50%; transform: translateX(-50%); }
-
 .hero__bg {
   position: absolute;
   inset: 0;
@@ -138,7 +94,6 @@ const goToLogin = () => {
     linear-gradient(180deg, rgba(107,158,255,0.20), rgba(168,132,255,0.22));
   backdrop-filter: blur(0.7px);
 }
-
 .hero__content {
   position: relative;
   z-index: 3;
@@ -152,7 +107,6 @@ const goToLogin = () => {
   padding: 40px 16px;
   color: #fff;
 }
-
 .hero__title {
   font-size: clamp(28px, 5.8vw, 56px);
   line-height: 1.06;
@@ -161,7 +115,6 @@ const goToLogin = () => {
   letter-spacing: 0.2px;
   text-shadow: 0 6px 24px rgba(0,0,0,0.35);
 }
-
 .hero__subtitle {
   max-width: 720px;
   font-size: clamp(13px, 1.6vw, 16px);
@@ -169,7 +122,6 @@ const goToLogin = () => {
   color: rgba(255,255,255,0.92);
   text-wrap: balance;
 }
-
 .hero__cta :deep(.p-button) { font-weight: 700; }
 .hero__cta {
   --p-button-bg: #5fa8ff;
@@ -178,9 +130,7 @@ const goToLogin = () => {
   --p-button-border-color: transparent;
   box-shadow: 0 10px 30px rgba(90,160,255,0.35);
 }
-
 @media (max-width: 640px) {
-  .login--center { display: none; }
   .hero__subtitle { padding: 0 6px; }
 }
 </style>
