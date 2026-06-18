@@ -2,184 +2,213 @@
   <NavBar />
 
   <section class="map-section">
-    <header class="user-header">
-      <h2 class="title">Find Mental Wellbeing Support Near You</h2>
-    </header>
 
-    <div id="map" class="map"></div>
-
-    <div class="controls">
-      <select v-model="selectedSkill">
-        <option disabled value="">Select a skill or service</option>
-        <option v-for="skill in skills" :key="skill" :value="skill">
-          {{ skill }}
-        </option>
-      </select>
-      <button @click="searchPlaces">Search</button>
-    </div>
-
-    <Dialog v-model:visible="showPopup" modal :header="popupTitle" :style="{ width: '400px' }">
-      <div class="popup-card" :class="popupType">
-        <p>{{ popupMessage }}</p>
-      </div>
-      <template #footer>
-        <Button label="OK" icon="pi pi-check" class="p-button-primary" @click="showPopup = false" />
-      </template>
-    </Dialog>
-
-    <div v-if="places.length" class="places-container">
-      <h3>Top 5 Nearest Centres for {{ selectedSkill }}</h3>
-      <ul class="places-list">
-        <li v-for="p in places" :key="p.place_id" class="place-item">
-          <div class="place-info" @click="getDirections(p)">
-            <strong>{{ p.name }}</strong> — {{ p.formatted_address }} <br />
-            <span v-if="p.distance && p.duration" class="eta">
-              {{ p.distance }} • ETA: {{ p.duration }}
-            </span>
-          </div>
-          <button class="join-btn" @click.stop="openJoinDialog(p)">
-            Join this centre?
-          </button>
-        </li>
-      </ul>
-    </div>
-
-    <Dialog
-      v-model:visible="showJoinDialog"
-      modal
-      header="Join this Centre"
-      :style="{ width: '420px' }"
-    >
-      <div class="p-fluid">
-        <p><strong>Skill:</strong> {{ selectedSkill }}</p>
-        <p><strong>Centre:</strong> {{ selectedPlace?.name }}</p>
-        <p><strong>Address:</strong> {{ selectedPlace?.formatted_address }}</p>
-
-        <div class="p-field">
-          <label>Start Date</label>
-          <InputText
-            type="date"
-            v-model="startDate"
-            style="width: 100%; padding: 0.5rem;"
-          />
-        </div>
-
-        <div class="p-field">
-          <label>Duration (weeks)</label>
-          <InputNumber v-model="duration" :min="1" :max="52" showButtons />
-        </div>
-
-        <div class="p-field">
-          <label>Frequency (sessions/week)</label>
-          <InputNumber v-model="frequency" :min="1" :max="7" showButtons />
-        </div>
-      </div>
-
-      <template #footer>
-        <Button
-          label="Cancel"
-          icon="pi pi-times"
-          class="p-button-text"
-          @click="showJoinDialog = false"
-        />
-        <Button
-          label="Save"
-          icon="pi pi-check"
-          class="p-button-primary"
-          @click="saveJoinedCentre"
-        />
-      </template>
-    </Dialog>
-
-    <div v-if="joinedCentres.length" class="centre-table">
-      <h3>Your Joined Centres</h3>
-      <DataTable
-        :value="joinedCentres"
-        paginator
-        :rows="10"
-        :rowsPerPageOptions="[5, 10, 20]"
-        filterDisplay="row"
-        responsiveLayout="scroll"
-      >
-        <Column
-          field="skill"
-          header="Skill"
-          sortable
-          filter
-          filterPlaceholder="Search skill"
-        />
-        <Column
-          field="name"
-          header="Centre"
-          sortable
-          filter
-          filterPlaceholder="Search centre"
-        />
-        <Column field="address" header="Address" sortable />
-        <Column field="startDate" header="Start Date" sortable />
-        <Column field="duration" header="Duration (weeks)" sortable />
-        <Column field="frequency" header="Frequency (/week)" sortable />
-        <Column field="completedSessions" header="Completed" sortable />
-        <Column header="Target">
-          <template #body="{ data }">
-            {{ data.frequency * data.duration }}
-          </template>
-        </Column>
-        <Column header="Progress">
-          <template #body="{ data }">
-            <span class="badge" :class="progressClass(data)">
-              {{
-                Math.round(
-                  (data.completedSessions /
-                    (data.frequency * data.duration)) *
-                    100
-                ) || 0
-              }}%
-            </span>
-          </template>
-        </Column>
-        <Column header="Mark Progress">
-          <template #body="{ data }">
-            <Button
-              icon="pi pi-check"
-              rounded
-              @click="markProgress(data)"
-              :disabled="
-                data.completedSessions >= data.frequency * data.duration
-              "
-            />
-          </template>
-        </Column>
-        <Column header="Rate this Skill">
-          <template #body="{ data }">
-            <Rating
-              v-model="ratings[data.id]"
-              :cancel="false"
-              @change="submitRating(data, ratings[data.id])"
-            />
-          </template>
-        </Column>
-      </DataTable>
-    </div>
-
-    <div v-if="joinedCentres.length" class="centre-chart">
-      <h3>Lesson Progress by Centre</h3>
-      <Chart
-        type="bar"
-        :data="chartData"
-        :options="chartOptions"
-        style="height: 350px; width: 100%; max-width: 900px"
+    <div v-if="!user" class="login-prompt">
+      <h2 class="title">Please Log In</h2>
+      <p>Log in to view wellbeing centres near you and track your progress.</p>
+      <Button
+        label="Go to Login"
+        icon="pi pi-sign-in"
+        @click="$router.push('/login')"
       />
+    </div>
+
+
+    <div v-else>
+      <header class="user-header">
+        <h2 class="title">Find Mental Wellbeing Support Near You</h2>
+      </header>
+
+      <div id="map" class="map"></div>
+
+
+      <div class="controls">
+        <select v-model="selectedSkill">
+          <option disabled value="">Select a skill or service</option>
+          <option v-for="skill in skills" :key="skill" :value="skill">
+            {{ skill }}
+          </option>
+          <Dialog v-model:visible="showPopup" modal :header="popupTitle" :style="{ width: '400px' }">
+  <div class="popup-card" :class="popupType">
+    <p>{{ popupMessage }}</p>
+  </div>
+  <template #footer>
+    <Button label="OK" icon="pi pi-check" class="p-button-primary" @click="showPopup = false" />
+  </template>
+</Dialog>
+
+        </select>
+        <button @click="searchPlaces">Search</button>
+      </div>
+
+      <div v-if="places.length" class="places-container">
+        <h3>Top 5 Nearest Centres for {{ selectedSkill }}</h3>
+        <ul class="places-list">
+  <li
+    v-for="p in places"
+    :key="p.place_id"
+    class="place-item"
+  >
+    <div class="place-info" @click="getDirections(p)">
+      <strong>{{ p.name }}</strong> — {{ p.formatted_address }} <br />
+      <span v-if="p.distance && p.duration" class="eta">
+        {{ p.distance }} • ETA: {{ p.duration }}
+      </span>
+    </div>
+
+    <button class="join-btn" @click.stop="openJoinDialog(p)">
+      Joined this academy?
+    </button>
+  </li>
+</ul>
+
+      </div>
+
+
+      <Dialog
+        v-model:visible="showJoinDialog"
+        modal
+        header="Join this Academy"
+        :style="{ width: '420px' }"
+      >
+        <div class="p-fluid">
+          <p><strong>Skill:</strong> {{ selectedSkill }}</p>
+          <p><strong>Academy:</strong> {{ selectedPlace?.name }}</p>
+          <p><strong>Address:</strong> {{ selectedPlace?.formatted_address }}</p>
+
+          <div class="p-field">
+            <label>Start Date</label>
+            <InputText
+              type="date"
+              v-model="startDate"
+              style="width: 100%; padding: 0.5rem;"
+            />
+          </div>
+
+          <div class="p-field">
+            <label>Duration (weeks)</label>
+            <InputNumber v-model="duration" :min="1" :max="52" showButtons />
+          </div>
+
+          <div class="p-field">
+            <label>Frequency (sessions/week)</label>
+            <InputNumber v-model="frequency" :min="1" :max="7" showButtons />
+          </div>
+        </div>
+
+        <template #footer>
+          <Button
+            label="Cancel"
+            icon="pi pi-times"
+            class="p-button-text"
+            @click="showJoinDialog = false"
+          />
+          <Button
+            label="Save"
+            icon="pi pi-check"
+            class="p-button-primary"
+            @click="saveJoinedAcademy"
+          />
+        </template>
+      </Dialog>
+
+
+      <div v-if="joinedAcademies.length" class="academy-table">
+        <h3>Your Joined Academies</h3>
+        <DataTable
+          :value="joinedAcademies"
+          paginator
+          :rows="10"
+          :rowsPerPageOptions="[5, 10, 20]"
+          filterDisplay="row"
+          responsiveLayout="scroll"
+        >
+          <Column
+            field="skill"
+            header="Skill"
+            sortable
+            filter
+            filterPlaceholder="Search skill"
+          />
+          <Column
+            field="name"
+            header="Academy"
+            sortable
+            filter
+            filterPlaceholder="Search academy"
+          />
+
+          <Column field="address" header="Address" sortable />
+          <Column field="startDate" header="Start Date" sortable />
+          <Column field="duration" header="Duration (weeks)" sortable />
+          <Column field="frequency" header="Frequency (/week)" sortable />
+          <Column field="completedSessions" header="Completed" sortable />
+          <Column header="Target">
+            <template #body="{ data }">
+              {{ data.frequency * data.duration }}
+            </template>
+          </Column>
+          <Column header="Progress">
+            <template #body="{ data }">
+              <span class="badge" :class="progressClass(data)">
+                {{
+                  Math.round(
+                    (data.completedSessions /
+                      (data.frequency * data.duration)) *
+                      100
+                  ) || 0
+                }}%
+              </span>
+            </template>
+          </Column>
+          <Column header="Mark Progress">
+            <template #body="{ data }">
+              <Button
+                icon="pi pi-check"
+                rounded
+                @click="markProgress(data)"
+                :disabled="
+                  data.completedSessions >= data.frequency * data.duration
+                "
+              />
+            </template>
+          </Column>
+          <Column header="Mark your liking for this skill ">
+  <template #body="{ data }">
+    <Rating
+      v-model="ratings[data.id]"
+      :cancel="false"
+      @change="submitRating(data, ratings[data.id])"
+    />
+  </template>
+</Column>
+
+        </DataTable>
+      </div>
+
+
+      <div v-if="joinedAcademies.length" class="academy-chart">
+        <h3>Lesson Progress by Academy</h3>
+        <Chart
+          type="bar"
+          :data="chartData"
+          :options="chartOptions"
+          style="height: 350px; width: 100%; max-width: 900px"
+        />
+      </div>
     </div>
   </section>
 </template>
 
 <script setup>
-import Rating from "primevue/rating";
+import Rating from "primevue/rating"
+
 /* global google */
 import { ref, onMounted, nextTick } from "vue";
-import { db } from "../firebaseConfig";
+import { auth, db } from "../firebaseConfig";
+import { onAuthStateChanged } from "firebase/auth";
 import { collection, addDoc, getDocs, updateDoc, doc, setDoc } from "firebase/firestore";
+
 
 import Button from "primevue/button";
 import Dialog from "primevue/dialog";
@@ -190,19 +219,11 @@ import Column from "primevue/column";
 import Chart from "primevue/chart";
 import NavBar from "./NavBar.vue";
 
-// ✅ Demo user - no authentication needed
-const demoUserId = "demo-user-123";
-const demoUser = {
-  uid: demoUserId,
-  displayName: "Demo User",
-  email: "demo@youthealth.app"
-};
-
 const selectedSkill = ref("");
-const showPopup = ref(false);
-const popupTitle = ref("");
-const popupMessage = ref("");
-const popupType = ref("info");
+const showPopup = ref(false)
+const popupTitle = ref('')
+const popupMessage = ref('')
+const popupType = ref('info')
 
 const ratings = ref({});
 const avgRatings = ref({});
@@ -218,18 +239,20 @@ const skills = [
 ];
 
 const places = ref([]);
-const joinedCentres = ref([]);
+const joinedAcademies = ref([]);
 const chartData = ref({});
 const selectedPlace = ref(null);
 const showJoinDialog = ref(false);
 const startDate = ref(new Date().toISOString().split("T")[0]);
 const duration = ref(4);
 const frequency = ref(2);
+const user = ref(null);
 
 let gmap = null;
 let userMarker = null;
 let directionsService = null;
 let directionsRenderer = null;
+
 
 const chartOptions = {
   responsive: true,
@@ -238,63 +261,71 @@ const chartOptions = {
   scales: { y: { beginAtZero: true, title: { display: true, text: "Sessions" } } },
 };
 
-function showMessage(title, message, type = "info") {
-  popupTitle.value = title;
-  popupMessage.value = message;
-  popupType.value = type;
-  showPopup.value = true;
+function showMessage(title, message, type = 'info') {
+  popupTitle.value = title
+  popupMessage.value = message
+  popupType.value = type
+  showPopup.value = true
 }
 
-// ✅ Load ratings from Firestore
+
 async function loadRatings() {
   try {
-    const snapshot = await getDocs(collection(db, "ratings"));
-    const grouped = {};
+    const snapshot = await getDocs(collection(db, "ratings"))
+    const grouped = {}
     snapshot.docs.forEach((doc) => {
-      const data = doc.data();
-      if (!grouped[data.skill]) grouped[data.skill] = [];
-      grouped[data.skill].push(data.value);
-    });
+      const data = doc.data()
+      if (!grouped[data.skill]) grouped[data.skill] = []
+      grouped[data.skill].push(data.value)
+    })
     for (const skill in grouped) {
-      const values = grouped[skill];
+      const values = grouped[skill]
       avgRatings.value[skill] =
-        values.reduce((a, b) => a + b, 0) / values.length;
+        values.reduce((a, b) => a + b, 0) / values.length
     }
   } catch (e) {
-    console.error("Error loading ratings:", e);
+    console.error("Error loading ratings:", e)
   }
 }
 
-// ✅ Submit rating using demo user ID
-async function submitRating(centre, value) {
+async function submitRating(academy, value) {
+  if (!auth.currentUser) return showMessage("Please log in to rate.")
   try {
     const ratingRef = doc(
       db,
       "users",
-      demoUserId,
+      auth.currentUser.uid,
       "ratings",
-      centre.id
-    );
+      academy.id
+    )
     await setDoc(ratingRef, {
-      skill: centre.skill,
-      centreName: centre.name,
+      skill: academy.skill,
+      academyName: academy.name,
       value,
       createdAt: new Date().toISOString(),
-    });
-    ratings.value[centre.id] = value;
-    showMessage("Success", `Thanks for rating ${centre.name}!`, "success");
-    await loadRatings();
+    })
+    ratings.value[academy.id] = value
+    showMessage(`Thanks for rating ${academy.name}!`)
+    await loadRatings()
   } catch (e) {
-    console.error("Rating save failed:", e);
-    showMessage("Error", "Failed to save rating", "error");
+    console.error("Rating save failed:", e)
   }
 }
 
-onMounted(async () => {
-  await loadRatings();
-  await fetchJoinedCentres();
-  await nextTick();
-  loadGoogleMap();
+onMounted(() => loadRatings())
+
+
+
+onMounted(() => {
+  onAuthStateChanged(auth, async (u) => {
+    user.value = u || null;
+
+    if (u) {
+      await fetchJoinedAcademies();
+      await nextTick();
+      loadGoogleMap();
+    }
+  });
 });
 
 function loadGoogleMap() {
@@ -339,11 +370,12 @@ function initMapSafely() {
     });
   }
 
-  console.log("Google Map initialized");
+  console.log("Google Map initialized checking");
 }
 
+
 async function searchPlaces() {
-  if (!selectedSkill.value) return showMessage("Error", "Please select a skill first.", "error");
+  if (!selectedSkill.value) return showMessage("Please select a skill first.");
   const center = gmap.getCenter();
   const url = `https://australia-southeast2-youthealth.cloudfunctions.net/placesText?query=${encodeURIComponent(
     selectedSkill.value
@@ -353,7 +385,7 @@ async function searchPlaces() {
     const res = await fetch(url);
     const data = await res.json();
     if (data.status !== "OK")
-      return showMessage("Error", `${data.error_message || data.status}`, "error");
+      return showMessage(`Error: ${data.error_message || data.status}`);
 
     const userLoc = userMarker ? userMarker.getPosition() : center;
     const sorted = data.results
@@ -381,7 +413,6 @@ async function searchPlaces() {
     setTimeout(fetchETAs, 800);
   } catch (err) {
     console.error("Error fetching places:", err);
-    showMessage("Error", "Failed to fetch centres", "error");
   }
 }
 
@@ -420,7 +451,7 @@ function fetchETAs() {
 }
 
 function getDirections(p) {
-  if (!userMarker) return showMessage("Error", "User location not found yet.", "error");
+  if (!userMarker) return showMessage("User location not found yet.");
   const from = userMarker.getPosition();
   const request = {
     origin: from,
@@ -438,8 +469,7 @@ function openJoinDialog(place) {
   showJoinDialog.value = true;
 }
 
-// ✅ Save joined centre using demo user ID
-async function saveJoinedCentre() {
+async function saveJoinedAcademy() {
   const entry = {
     skill: selectedSkill.value,
     name: selectedPlace.value.name,
@@ -450,54 +480,36 @@ async function saveJoinedCentre() {
     completedSessions: 0,
     createdAt: new Date(),
   };
-  try {
-    const refCol = collection(db, "users", demoUserId, "joined_centres");
-    const docRef = await addDoc(refCol, entry);
-    entry.id = docRef.id;
-    joinedCentres.value.push(entry);
-    showJoinDialog.value = false;
-    updateChart();
-    showMessage("Success", "Centre added successfully!", "success");
-  } catch (e) {
-    console.error("Failed to save centre:", e);
-    showMessage("Error", "Failed to add centre", "error");
-  }
+  const refCol = collection(db, "users", user.value.uid, "joined_academies");
+  const docRef = await addDoc(refCol, entry);
+  entry.id = docRef.id;
+  joinedAcademies.value.push(entry);
+  showJoinDialog.value = false;
+  updateChart();
 }
 
-// ✅ Fetch joined centres using demo user ID
-async function fetchJoinedCentres() {
-  try {
-    const refCol = collection(db, "users", demoUserId, "joined_centres");
-    const snapshot = await getDocs(refCol);
-    joinedCentres.value = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-    updateChart();
-  } catch (e) {
-    console.error("Failed to fetch centres:", e);
-  }
+async function fetchJoinedAcademies() {
+  const refCol = collection(db, "users", user.value.uid, "joined_academies");
+  const snapshot = await getDocs(refCol);
+  joinedAcademies.value = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+  updateChart();
 }
 
-// ✅ Mark progress using demo user ID
-async function markProgress(c) {
-  const max = c.duration * c.frequency;
-  if (c.completedSessions >= max)
-    return showMessage("Info", "You've completed this program!", "info");
-  const newVal = c.completedSessions + 1;
-  try {
-    const ref = doc(db, "users", demoUserId, "joined_centres", c.id);
-    await updateDoc(ref, { completedSessions: newVal });
-    c.completedSessions = newVal;
-    updateChart();
-    showMessage("Success", "Progress marked!", "success");
-  } catch (e) {
-    console.error("Failed to mark progress:", e);
-    showMessage("Error", "Failed to mark progress", "error");
-  }
+async function markProgress(a) {
+  const max = a.duration * a.frequency;
+  if (a.completedSessions >= max)
+    return showMessage("You've completed this program!");
+  const newVal = a.completedSessions + 1;
+  const ref = doc(db, "users", user.value.uid, "joined_academies", a.id);
+  await updateDoc(ref, { completedSessions: newVal });
+  a.completedSessions = newVal;
+  updateChart();
 }
 
 function updateChart() {
-  const labels = joinedCentres.value.map((c) => c.name);
-  const completed = joinedCentres.value.map((c) => c.completedSessions);
-  const targets = joinedCentres.value.map((c) => c.duration * c.frequency);
+  const labels = joinedAcademies.value.map((a) => a.name);
+  const completed = joinedAcademies.value.map((a) => a.completedSessions);
+  const targets = joinedAcademies.value.map((a) => a.duration * a.frequency);
   chartData.value = {
     labels,
     datasets: [
@@ -507,9 +519,9 @@ function updateChart() {
   };
 }
 
-function progressClass(c) {
-  const t = c.duration * c.frequency;
-  const pct = (c.completedSessions / t) * 100 || 0;
+function progressClass(a) {
+  const t = a.duration * a.frequency;
+  const pct = (a.completedSessions / t) * 100 || 0;
   if (pct >= 100) return "badge-done";
   if (pct >= 60) return "badge-good";
   if (pct > 0) return "badge-wip";
@@ -552,90 +564,50 @@ function progressClass(c) {
   font-size: 0.9rem;
 }
 
-.map-section {
-  padding: 1rem;
-  background: #f5f2fa;
-  min-height: 100vh;
+
+
+.map-section { padding: 1rem; background: #f5f2fa; min-height: 100vh; }
+.title { text-align: center; margin-bottom: 1rem; color: #4a148c; font-weight: 600; width: 100%; }
+.user-header { display: flex; justify-content: space-between; align-items: center; }
+.login-prompt { text-align: center; margin-top: 4rem; }
+.map { width: 95vw; height: 400px; border-radius: 10px; margin-bottom: 1rem; }
+.controls { display: flex; justify-content: center; gap: 10px; margin-bottom: 1rem; }
+select, button { padding: 0.6rem 1.2rem; border-radius: 6px; border: 1px solid #ccc; font-size: 1rem; }
+button { background: #673ab7; color: #fff; border: none; cursor: pointer; }
+button:hover { background: #512da8; }
+.join-btn { margin-top: 0.4rem; background: #87c8ff; }
+.join-btn:hover { background: #43a047; }
+.places-container, .academy-table, .academy-chart {
+  width: 98vw; max-width: 2500px; margin: 2rem auto; background: #fff;
+  border-radius: 12px; padding: 2rem; box-shadow: 0 4px 10px rgba(0,0,0,0.08);
 }
-.title {
-  text-align: center;
-  margin-bottom: 1rem;
-  color: #4a148c;
-  font-weight: 600;
-  width: 100%;
-}
-.user-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.map {
-  width: 95vw;
-  height: 400px;
-  border-radius: 10px;
-  margin-bottom: 1rem;
-}
-.controls {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-bottom: 1rem;
-}
-select,
-button {
-  padding: 0.6rem 1.2rem;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  font-size: 1rem;
-}
-button {
-  background: #673ab7;
-  color: #fff;
-  border: none;
-  cursor: pointer;
-}
-button:hover {
-  background: #512da8;
-}
-.join-btn {
-  margin-top: 0.4rem;
-  background: #87c8ff;
-}
-.join-btn:hover {
-  background: #43a047;
-}
-.places-container,
-.centre-table,
-.centre-chart {
-  width: 98vw;
-  max-width: 2500px;
-  margin: 2rem auto;
-  background: #fff;
-  border-radius: 12px;
-  padding: 2rem;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
-}
-.badge {
-  padding: 0.25rem 0.5rem;
-  border-radius: 999px;
-  color: #fff;
-  font-size: 0.8rem;
-}
-.badge-idle {
-  background: #9e9e9e;
-}
-.badge-wip {
-  background: #ff9800;
-}
-.badge-good {
-  background: #87c8ff;
-}
-.badge-done {
-  background: #3f51b5;
-}
+.badge { padding: 0.25rem 0.5rem; border-radius: 999px; color: #fff; font-size: 0.8rem; }
+.badge-idle { background: #9e9e9e; }
+.badge-wip { background: #ff9800; }
+.badge-good { background: #87c8ff; }
+.badge-done { background: #3f51b5; }
 .p-fluid {
   padding: 1rem 1.5rem;
 }
+.rating-summary {
+  margin-top: 1.5rem;
+  text-align: center;
+  background: #f9f9f9;
+  padding: 1rem;
+  border-radius: 8px;
+}
+.rating-summary ul {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0;
+}
+.rating-summary li {
+  margin: 0.3rem 0;
+  font-weight: 500;
+  color: #333;
+}
+
+
 .p-field {
   margin-bottom: 1rem;
 }
@@ -672,4 +644,5 @@ button:hover {
   color: #1565c0;
   background: #e3f2fd;
 }
+
 </style>
